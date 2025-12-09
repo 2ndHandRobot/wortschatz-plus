@@ -131,35 +131,8 @@ export default function DictionaryPage() {
 
       const vocab = word.vocabulary
 
-      // Search in German word
-      if (vocab.german.toLowerCase().includes(query)) {
-        return true
-      }
-
-      // Search in English translations
-      if (vocab.english.some(translation => translation.toLowerCase().includes(query))) {
-        return true
-      }
-
-      // Search in notes
-      if (vocab.notes && vocab.notes.toLowerCase().includes(query)) {
-        return true
-      }
-
-      // Search in tags
-      if (vocab.tags && vocab.tags.some(tag => tag.toLowerCase().includes(query))) {
-        return true
-      }
-
-      // Search in example sentences
-      if (vocab.examples && vocab.examples.some(example =>
-        example.german.toLowerCase().includes(query) ||
-        example.english.toLowerCase().includes(query)
-      )) {
-        return true
-      }
-
-      return false
+      // Search only in German word
+      return vocab.german.toLowerCase().includes(query)
     })
   }
 
@@ -231,7 +204,7 @@ export default function DictionaryPage() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search words (German or English)..."
+              placeholder="Search German words..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
