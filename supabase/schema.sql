@@ -7,7 +7,20 @@ CREATE TABLE profiles (
   email TEXT UNIQUE NOT NULL,
   full_name TEXT,
   target_daily_learning_time INTEGER DEFAULT 15, -- in minutes
-  claude_api_key TEXT, -- encrypted in production
+
+  -- LLM Provider Configuration
+  selected_llm_provider TEXT DEFAULT 'anthropic' CHECK (selected_llm_provider IN ('anthropic', 'google', 'openai', 'deepseek')),
+  anthropic_api_key TEXT, -- for Claude - encrypted in production
+  google_api_key TEXT, -- for Gemini - encrypted in production
+  openai_api_key TEXT, -- for ChatGPT - encrypted in production
+  deepseek_api_key TEXT, -- for DeepSeek - encrypted in production
+
+  -- Model Selection per Provider
+  anthropic_model TEXT DEFAULT 'claude-haiku-4-5-20251001',
+  google_model TEXT DEFAULT 'gemini-2.5-flash-latest',
+  openai_model TEXT DEFAULT 'gpt-4o-mini',
+  deepseek_model TEXT DEFAULT 'deepseek-chat',
+
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

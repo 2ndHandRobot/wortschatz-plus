@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { getUserLLMConfig, LLMService } from '@/lib/llm/service'
 
 export async function POST(request: Request) {
   try {
@@ -13,15 +13,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('claude_api_key')
-      .eq('id', user.id)
-      .single()
+    const llmConfig = await getUserLLMConfig(supabase, user.id)
 
-    if (!profile?.claude_api_key) {
+    if (!llmConfig) {
       return NextResponse.json(
-        { error: 'Claude API key not configured. Please add it in your profile.' },
+        { error: 'AI provider not configured. Please add an API key in your profile.' },
         { status: 400 }
       )
     }
@@ -51,9 +47,7 @@ export async function POST(request: Request) {
       })
     }
 
-    const anthropic = new Anthropic({
-      apiKey: profile.claude_api_key.trim(),
-    })
+    const llmService = new LLMService(llmConfig)
 
     let enrichedCount = 0
     const errors: Array<{ word: string; error: string }> = []
@@ -67,10 +61,8 @@ export async function POST(request: Request) {
       try {
         console.log(`Enriching word: ${entry.german}`)
 
-        const vocabMessage = await anthropic.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 2048,
-          messages: [
+        const vocabResponse = await llmService.generateCompletion(
+          [
             {
               role: 'user',
               content: `You are a German language expert. Provide complete grammatical information for the German word/phrase "${entry.german}".
@@ -130,10 +122,10 @@ Return a JSON object with this structure (only include fields relevant to the wo
 Return ONLY valid JSON, no markdown formatting.`,
             },
           ],
-        })
+          { maxTokens: 2048, model: 'fast' }
+        )
 
-        const vocabText = vocabMessage.content[0].type === 'text' ? vocabMessage.content[0].text : '{}'
-        const cleanedText = vocabText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+        const cleanedText = vocabResponse.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
         const vocabData = JSON.parse(cleanedText)
 
         // Build update object with all relevant fields

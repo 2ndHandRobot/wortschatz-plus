@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { getUserLLMConfig, LLMService } from '@/lib/llm/service'
 
 export async function POST(request: Request) {
   try {
@@ -22,29 +22,19 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get user's Claude API key
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('claude_api_key')
-      .eq('id', user.id)
-      .single()
+    const llmConfig = await getUserLLMConfig(supabase, user.id)
 
-    if (profileError || !profile?.claude_api_key) {
+    if (!llmConfig) {
       return NextResponse.json(
-        { error: 'Claude API key not found. Please add it in your profile.' },
+        { error: 'AI provider not configured. Please add an API key in your profile.' },
         { status: 400 }
       )
     }
 
-    // Use Claude to evaluate the translation
-    const anthropic = new Anthropic({
-      apiKey: profile.claude_api_key.trim(),
-    })
+    const llmService = new LLMService(llmConfig)
 
-    const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 500,
-      messages: [
+    const response = await llmService.generateCompletion(
+      [
         {
           role: 'user',
           content: `You are a German language teacher evaluating student translations.
@@ -68,15 +58,10 @@ Respond in JSON format:
 Be encouraging but accurate. Accept minor variations if they're grammatically correct and convey the same meaning.`,
         },
       ],
-    })
+      { maxTokens: 500, model: 'fast' }
+    )
 
-    const content = message.content[0]
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type from Claude')
-    }
-
-    // Parse Claude's response
-    const responseText = content.text
+    const responseText = response.content
     const jsonMatch = responseText.match(/\{[\s\S]*\}/)
 
     if (!jsonMatch) {

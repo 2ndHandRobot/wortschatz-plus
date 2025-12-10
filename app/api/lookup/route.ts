@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { getUserLLMConfig, LLMService } from '@/lib/llm/service'
 
 export async function POST(request: Request) {
   try {
@@ -19,34 +19,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Word is required' }, { status: 400 })
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('claude_api_key')
-      .eq('id', user.id)
-      .single()
+    const llmConfig = await getUserLLMConfig(supabase, user.id)
 
-    // console.log('Profile data:', profile)
-    // console.log('API key exists:', !!profile?.claude_api_key)
-    // console.log('API key length:', profile?.claude_api_key?.length)
-
-    if (!profile?.claude_api_key) {
+    if (!llmConfig) {
       return NextResponse.json(
-        { error: 'Claude API key not configured. Please add it in your profile.' },
+        { error: 'AI provider not configured. Please add an API key in your profile.' },
         { status: 400 }
       )
     }
 
-    const anthropic = new Anthropic({
-      apiKey: profile.claude_api_key.trim(),
-    })
+    const llmService = new LLMService(llmConfig)
 
-    console.log('Making request to Claude API...')
-    console.log('API key prefix:', profile.claude_api_key.trim().substring(0, 10) + '...')
+    console.log(`Making request to ${llmConfig.provider} API...`)
 
-    const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages: [
+    const rootFormResponse = await llmService.generateCompletion(
+      [
         {
           role: 'user',
           content: `You are a German language expert. Given the German word or phrase "${word}", identify its root form (lemma). For verbs in conjugated forms, return the infinitive. For nouns in plural, return the singular WITHOUT article. For adjectives in declined forms, return the base form. For common collocations, expressions, or idioms, return the full phrase.
@@ -59,9 +46,10 @@ Return ONLY the root form, nothing else. Examples:
 - "Entscheidung treffen" -> "Entscheidung treffen"`,
         },
       ],
-    })
+      { maxTokens: 1024, model: 'fast' }
+    )
 
-    const rootForm = message.content[0].type === 'text' ? message.content[0].text.trim() : word
+    const rootForm = rootFormResponse.content.trim()
 
     const { data: vocabularyEntry } = await supabase
       .from('vocabulary')
@@ -77,10 +65,8 @@ Return ONLY the root form, nothing else. Examples:
       })
     }
 
-    const vocabMessage = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      messages: [
+    const vocabResponse = await llmService.generateCompletion(
+      [
         {
           role: 'user',
           content: `You are a German language expert. Provide complete grammatical information for the German word/phrase "${rootForm}".
@@ -113,10 +99,10 @@ Return a JSON object with this structure (only include fields relevant to the wo
 Return ONLY valid JSON, no markdown formatting.`,
         },
       ],
-    })
+      { maxTokens: 2048, model: 'fast' }
+    )
 
-    const vocabText = vocabMessage.content[0].type === 'text' ? vocabMessage.content[0].text : '{}'
-    const cleanedText = vocabText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    const cleanedText = vocabResponse.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
     const vocabData = JSON.parse(cleanedText)
 
     return NextResponse.json({

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { getUserLLMConfig, LLMService } from '@/lib/llm/service'
 
 export async function GET() {
   try {
@@ -13,55 +13,44 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('claude_api_key')
-      .eq('id', user.id)
-      .single()
+    const llmConfig = await getUserLLMConfig(supabase, user.id)
 
-    if (!profile?.claude_api_key) {
+    if (!llmConfig) {
       return NextResponse.json(
-        { error: 'Claude API key not configured' },
+        { error: 'AI provider not configured. Please add an API key in your profile.' },
         { status: 400 }
       )
     }
 
-    const apiKey = profile.claude_api_key.trim()
+    console.log(`=== ${llmConfig.provider.toUpperCase()} API Test ===`)
+    console.log('API Key prefix:', llmConfig.apiKey.substring(0, 20) + '...')
+    console.log('API Key length:', llmConfig.apiKey.length)
+    console.log(`Making test request to ${llmConfig.provider} API...`)
 
-    console.log('=== Claude API Test ===')
-    console.log('API Key prefix:', apiKey.substring(0, 20) + '...')
-    console.log('API Key length:', apiKey.length)
-    console.log('Making test request to Claude API...')
+    const llmService = new LLMService(llmConfig)
 
-    const anthropic = new Anthropic({
-      apiKey: apiKey,
-    })
-
-    const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 50,
-      messages: [
+    const response = await llmService.generateCompletion(
+      [
         {
           role: 'user',
           content: 'Say "Hello" in one word.',
         },
       ],
-    })
+      { maxTokens: 50, model: 'fast' }
+    )
 
-    console.log('Success! Response received from Claude')
-
-    const responseText = message.content[0].type === 'text' ? message.content[0].text : 'No text response'
+    console.log('Success! Response received from AI provider')
 
     return NextResponse.json({
       success: true,
-      message: 'Claude API is working!',
-      response: responseText,
-      apiKeyPrefix: apiKey.substring(0, 20) + '...',
-      model: message.model,
-      usage: message.usage,
+      message: `${llmConfig.provider} API is working!`,
+      response: response.content,
+      provider: llmConfig.provider,
+      apiKeyPrefix: llmConfig.apiKey.substring(0, 20) + '...',
+      usage: response.usage,
     })
   } catch (error) {
-    console.error('=== Claude API Test Error ===')
+    console.error('=== AI API Test Error ===')
     console.error('Error type:', error?.constructor?.name)
     console.error('Error message:', error instanceof Error ? error.message : String(error))
     console.error('Full error:', error)

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { getUserLLMConfig, LLMService } from '@/lib/llm/service'
 
 export async function POST(request: Request) {
   try {
@@ -13,34 +13,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { word, type, difficulty, english, apiKey } = await request.json()
+    const { word, type, difficulty, english } = await request.json()
 
     if (!word) {
       return NextResponse.json({ error: 'Word is required' }, { status: 400 })
     }
 
-    // Use provided apiKey or fetch from profile
-    let claudeApiKey = apiKey
+    const llmConfig = await getUserLLMConfig(supabase, user.id)
 
-    if (!claudeApiKey) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('claude_api_key')
-        .eq('id', user.id)
-        .single()
-
-      if (!profile?.claude_api_key) {
-        return NextResponse.json(
-          { error: 'Claude API key not configured' },
-          { status: 400 }
-        )
-      }
-      claudeApiKey = profile.claude_api_key
+    if (!llmConfig) {
+      return NextResponse.json(
+        { error: 'AI provider not configured. Please add an API key in your profile.' },
+        { status: 400 }
+      )
     }
 
-    const anthropic = new Anthropic({
-      apiKey: claudeApiKey.trim(),
-    })
+    const llmService = new LLMService(llmConfig)
 
     const englishTranslations = Array.isArray(english) ? english.join(', ') : english
 
@@ -62,19 +50,17 @@ Return a JSON object with this structure:
 
 Return ONLY valid JSON, no markdown.`
 
-    const message = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
-      messages: [
+    const response = await llmService.generateCompletion(
+      [
         {
           role: 'user',
           content: prompt,
         },
       ],
-    })
+      { maxTokens: 512, model: 'fast' }
+    )
 
-    const responseText = message.content[0].type === 'text' ? message.content[0].text : '{}'
-    const cleanedText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    const cleanedText = response.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
     const exerciseData = JSON.parse(cleanedText)
 
     return NextResponse.json({

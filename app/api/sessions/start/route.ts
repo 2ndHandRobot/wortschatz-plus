@@ -177,13 +177,6 @@ async function generateRecallExercises(words: any[]) {
 
 // Helper function to generate practice exercises
 async function generatePracticeExercises(words: any[], userId: string, supabase: any) {
-  // Get user's Claude API key
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('claude_api_key')
-    .eq('id', userId)
-    .single()
-
   const exercises = []
 
   for (const userWord of words.slice(0, 5)) { // Limit to 5 for practice mode with AI
@@ -191,37 +184,34 @@ async function generatePracticeExercises(words: any[], userId: string, supabase:
 
     if (!word) continue
 
-    // Generate practice sentence using Claude API
+    // Generate practice sentence using API (it will use configured LLM)
     try {
-      if (profile?.claude_api_key) {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/practice/generate`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              word: word.german,
-              type: word.type,
-              difficulty: word.difficulty,
-              english: word.english,
-              apiKey: profile.claude_api_key,
-            }),
-          }
-        )
-
-        if (response.ok) {
-          const data = await response.json()
-          exercises.push({
-            userWordId: userWord.id,
-            word: userWord,
-            sentenceGerman: data.sentenceGerman,
-            sentenceEnglish: data.sentenceEnglish,
-            targetWord: word.german,
-            difficulty: word.difficulty || 'A1',
-          })
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/practice/generate`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            word: word.german,
+            type: word.type,
+            difficulty: word.difficulty,
+            english: word.english,
+          }),
         }
+      )
+
+      if (response.ok) {
+        const data = await response.json()
+        exercises.push({
+          userWordId: userWord.id,
+          word: userWord,
+          sentenceGerman: data.sentenceGerman,
+          sentenceEnglish: data.sentenceEnglish,
+          targetWord: word.german,
+          difficulty: word.difficulty || 'A1',
+        })
       }
     } catch (error) {
       console.error('Failed to generate practice exercise:', error)
