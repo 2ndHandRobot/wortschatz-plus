@@ -148,11 +148,23 @@ export class LLMService {
 
     const data = await response.json();
 
+    console.log('=== Gemini Raw Response ===');
+    console.log('Full response data:', JSON.stringify(data, null, 2));
+
     if (!data.candidates || data.candidates.length === 0) {
       throw new Error('No response from Google API');
     }
 
     const content = data.candidates[0].content.parts[0].text;
+
+    console.log('=== Gemini Content Extraction ===');
+    console.log('Extracted content (raw):', content);
+    console.log('Content length:', content.length);
+    const charCodes = content.slice(0, 100).split('').map((c: string) => `${c}(${c.charCodeAt(0)})`).join(' ');
+    console.log('Content as char codes:', charCodes);
+    console.log('Test umlaut search - contains ö:', content.includes('ö'));
+    console.log('Test umlaut search - contains ä:', content.includes('ä'));
+    console.log('Test umlaut search - contains ü:', content.includes('ü'));
 
     return {
       content,

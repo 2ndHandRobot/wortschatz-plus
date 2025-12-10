@@ -266,16 +266,222 @@ export default function WordEditForm({ word, onSave, onCancel }: WordEditFormPro
                   </select>
                 </div>
 
+                {/* Conjugation Section */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Past Participle (Perfect)
-                  </label>
-                  <input
-                    type="text"
-                    value={'conjugation' in formData ? formData.conjugation?.perfect || '' : ''}
-                    onChange={(e) => updateNestedField('conjugation', 'perfect', e.target.value || undefined)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <h4 className="text-md font-semibold text-gray-800 mb-2">Conjugation</h4>
+
+                  {/* Present Tense */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Present Tense</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">ich</label>
+                        <input
+                          type="text"
+                          value={'conjugation' in formData ? formData.conjugation?.present?.ich || '' : ''}
+                          onChange={(e) => {
+                            const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                            updateField('conjugation', {
+                              ...current,
+                              present: { ...current.present, ich: e.target.value || undefined }
+                            })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">du</label>
+                        <input
+                          type="text"
+                          value={'conjugation' in formData ? formData.conjugation?.present?.du || '' : ''}
+                          onChange={(e) => {
+                            const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                            updateField('conjugation', {
+                              ...current,
+                              present: { ...current.present, du: e.target.value || undefined }
+                            })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">er/sie/es</label>
+                        <input
+                          type="text"
+                          value={'conjugation' in formData ? formData.conjugation?.present?.er_sie_es || '' : ''}
+                          onChange={(e) => {
+                            const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                            updateField('conjugation', {
+                              ...current,
+                              present: { ...current.present, er_sie_es: e.target.value || undefined }
+                            })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">wir</label>
+                        <input
+                          type="text"
+                          value={'conjugation' in formData ? formData.conjugation?.present?.wir || '' : ''}
+                          onChange={(e) => {
+                            const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                            updateField('conjugation', {
+                              ...current,
+                              present: { ...current.present, wir: e.target.value || undefined }
+                            })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">ihr</label>
+                        <input
+                          type="text"
+                          value={'conjugation' in formData ? formData.conjugation?.present?.ihr || '' : ''}
+                          onChange={(e) => {
+                            const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                            updateField('conjugation', {
+                              ...current,
+                              present: { ...current.present, ihr: e.target.value || undefined }
+                            })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">sie/Sie</label>
+                        <input
+                          type="text"
+                          value={'conjugation' in formData ? formData.conjugation?.present?.sie_Sie || '' : ''}
+                          onChange={(e) => {
+                            const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                            updateField('conjugation', {
+                              ...current,
+                              present: { ...current.present, sie_Sie: e.target.value || undefined }
+                            })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Preterite Tense */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Preterite (Simple Past)</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">ich</label>
+                        <input
+                          type="text"
+                          value={'conjugation' in formData ? formData.conjugation?.preterite?.ich || '' : ''}
+                          onChange={(e) => {
+                            const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                            updateField('conjugation', {
+                              ...current,
+                              preterite: { ...current.preterite, ich: e.target.value || undefined }
+                            })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">du</label>
+                        <input
+                          type="text"
+                          value={'conjugation' in formData ? formData.conjugation?.preterite?.du || '' : ''}
+                          onChange={(e) => {
+                            const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                            updateField('conjugation', {
+                              ...current,
+                              preterite: { ...current.preterite, du: e.target.value || undefined }
+                            })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">er/sie/es</label>
+                        <input
+                          type="text"
+                          value={'conjugation' in formData ? formData.conjugation?.preterite?.er_sie_es || '' : ''}
+                          onChange={(e) => {
+                            const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                            updateField('conjugation', {
+                              ...current,
+                              preterite: { ...current.preterite, er_sie_es: e.target.value || undefined }
+                            })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">wir</label>
+                        <input
+                          type="text"
+                          value={'conjugation' in formData ? formData.conjugation?.preterite?.wir || '' : ''}
+                          onChange={(e) => {
+                            const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                            updateField('conjugation', {
+                              ...current,
+                              preterite: { ...current.preterite, wir: e.target.value || undefined }
+                            })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">ihr</label>
+                        <input
+                          type="text"
+                          value={'conjugation' in formData ? formData.conjugation?.preterite?.ihr || '' : ''}
+                          onChange={(e) => {
+                            const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                            updateField('conjugation', {
+                              ...current,
+                              preterite: { ...current.preterite, ihr: e.target.value || undefined }
+                            })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">sie/Sie</label>
+                        <input
+                          type="text"
+                          value={'conjugation' in formData ? formData.conjugation?.preterite?.sie_Sie || '' : ''}
+                          onChange={(e) => {
+                            const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                            updateField('conjugation', {
+                              ...current,
+                              preterite: { ...current.preterite, sie_Sie: e.target.value || undefined }
+                            })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Past Participle */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Past Participle (Perfect)
+                    </label>
+                    <input
+                      type="text"
+                      value={'conjugation' in formData ? formData.conjugation?.perfect || '' : ''}
+                      onChange={(e) => {
+                        const current = 'conjugation' in formData ? formData.conjugation || {} : {}
+                        updateField('conjugation', {
+                          ...current,
+                          perfect: e.target.value || undefined
+                        })
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
 
                 <div>
