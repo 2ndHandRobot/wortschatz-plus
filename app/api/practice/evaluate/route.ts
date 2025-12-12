@@ -13,11 +13,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { userTranslation, correctTranslation, englishPrompt } = await request.json()
+    const { userTranslation, correctTranslation, englishPrompt, targetWord } = await request.json()
 
-    if (!userTranslation || !correctTranslation || !englishPrompt) {
+    if (!userTranslation || !correctTranslation || !englishPrompt || !targetWord) {
       return NextResponse.json(
-        { error: 'User translation, correct translation, and English prompt are required' },
+        { error: 'User translation, correct translation, English prompt, and target word are required' },
         { status: 400 }
       )
     }
@@ -37,25 +37,40 @@ export async function POST(request: Request) {
       [
         {
           role: 'user',
-          content: `You are a German language teacher evaluating student translations.
+          content: `You are a German language teacher evaluating student translations in a vocabulary practice exercise.
 
 English prompt: "${englishPrompt}"
-Correct German translation: "${correctTranslation}"
 Student's German translation: "${userTranslation}"
+TARGET WORD being practiced: "${targetWord}"
 
-Evaluate if the student's translation is correct or acceptable. Consider:
-1. Grammatical correctness
-2. Meaning accuracy
-3. Natural German phrasing
-4. Minor variations that are still correct
+EVALUATION CRITERIA:
+The exercise focuses specifically on the target word "${targetWord}". Evaluate the student's translation and assign one of three outcomes:
+
+1. "correct" - Good answer:
+   - The target word "${targetWord}" is used correctly (right form, right grammar, right collocations, correct prepositions)
+   - The meaning of the English prompt is accurately conveyed
+   - Only minor errors (if any) in other parts of the sentence (e.g., small typos, minor word order issues that don't affect meaning)
+
+2. "improve" - Could be improved:
+   - The target word "${targetWord}" is used correctly
+   - BUT there is at least one major mistake in other parts of the sentence (e.g., wrong verb conjugation, wrong case for other words, missing words, incorrect word choice)
+   - The overall meaning is still somewhat clear despite the errors
+
+3. "incorrect" - Incorrect:
+   - The target word "${targetWord}" is used incorrectly, missing, or has errors
+   - This includes: wrong form, wrong tense, wrong case, wrong article, wrong preposition that collocates with the target word
+   - OR the translation fails to convey the meaning of the English prompt
+
+For your feedback:
+- For "correct": Be encouraging and highlight what was done well
+- For "improve": Acknowledge correct use of the target word, then point out the specific errors in other parts: "Good use of '${targetWord}'! However, [specific issue with other part]..."
+- For "incorrect": Focus on what's wrong with the target word specifically or why the meaning is not conveyed
 
 Respond in JSON format:
 {
-  "isCorrect": true/false,
-  "feedback": "Brief explanation of what was good or what needs improvement"
-}
-
-Be encouraging but accurate. Accept minor variations if they're grammatically correct and convey the same meaning.`,
+  "outcome": "correct" | "improve" | "incorrect",
+  "feedback": "Brief explanation (1-2 sentences)"
+}`,
         },
       ],
       { maxTokens: 500, model: 'fast' }
@@ -71,8 +86,9 @@ Be encouraging but accurate. Accept minor variations if they're grammatically co
     const evaluation = JSON.parse(jsonMatch[0])
 
     return NextResponse.json({
-      isCorrect: evaluation.isCorrect,
+      outcome: evaluation.outcome,
       feedback: evaluation.feedback,
+      suggestedTranslation: correctTranslation,
     })
   } catch (error) {
     console.error('Evaluate translation error:', error)

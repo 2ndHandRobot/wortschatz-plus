@@ -16,6 +16,8 @@ export default function DictionaryPage() {
   const [enrichMessage, setEnrichMessage] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isNavOpen, setIsNavOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -116,6 +118,47 @@ export default function DictionaryPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save changes')
       throw err
+    }
+  }
+
+  const handleDeleteWord = async () => {
+    if (!selectedWord) return
+
+    // Find the user_word entry for this vocabulary word
+    const userWord = words.find(w => w.vocabulary?.id === selectedWord.id)
+    if (!userWord) {
+      setError('Word not found in your dictionary')
+      return
+    }
+
+    setDeleting(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/words/${userWord.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const result = await response.json()
+        throw new Error(result.error || 'Failed to remove word')
+      }
+
+      // Remove word from local state immediately
+      setWords(prevWords => prevWords.filter(w => w.id !== userWord.id))
+
+      // Close modals
+      setShowDeleteConfirm(false)
+      setSelectedWord(null)
+
+      // Show success message
+      setEnrichMessage(`"${selectedWord.german}" removed from your dictionary`)
+      setTimeout(() => setEnrichMessage(null), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove word')
+      setShowDeleteConfirm(false)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -481,6 +524,13 @@ export default function DictionaryPage() {
                 >
                   Edit
                 </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deleting}
+                  className="w-full bg-red-600 text-white py-3 px-6 rounded-md hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed transition-colors font-medium"
+                >
+                  Remove from Dictionary
+                </button>
               </div>
             </div>
           </div>
@@ -494,6 +544,46 @@ export default function DictionaryPage() {
           onSave={handleSaveWord}
           onCancel={() => setIsEditing(false)}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && selectedWord && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => !deleting && setShowDeleteConfirm(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Remove from Dictionary?</h3>
+              <p className="text-gray-600">
+                Are you sure you want to remove <span className="font-semibold">"{selectedWord.german}"</span> from your dictionary?
+              </p>
+              <p className="text-gray-600 mt-2">
+                This will delete your learning progress for this word.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteWord}
+                disabled={deleting}
+                className="flex-1 bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed transition-colors font-medium"
+              >
+                {deleting ? 'Removing...' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

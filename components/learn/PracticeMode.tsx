@@ -28,7 +28,8 @@ export default function PracticeMode({ sessionType, wordId, onComplete, onBack }
   const [userTranslation, setUserTranslation] = useState('')
   const [showAnswer, setShowAnswer] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
+  const [outcome, setOutcome] = useState<'correct' | 'improve' | 'incorrect' | null>(null)
+  const [suggestedTranslation, setSuggestedTranslation] = useState<string | null>(null)
   const [evaluating, setEvaluating] = useState(false)
   const [sessionStats, setSessionStats] = useState({
     correct: 0,
@@ -88,6 +89,7 @@ export default function PracticeMode({ sessionType, wordId, onComplete, onBack }
           userTranslation: userTranslation.trim(),
           correctTranslation: currentExercise.sentenceGerman,
           englishPrompt: currentExercise.sentenceEnglish,
+          targetWord: currentExercise.targetWord,
         }),
       })
 
@@ -98,15 +100,19 @@ export default function PracticeMode({ sessionType, wordId, onComplete, onBack }
       }
 
       const data = await response.json()
-      setIsCorrect(data.isCorrect)
+      setOutcome(data.outcome)
       setFeedback(data.feedback)
+      setSuggestedTranslation(data.suggestedTranslation)
       setShowAnswer(true)
 
       // Update stats immediately when answer is revealed
+      // Both 'correct' and 'improve' count as correct (target word used correctly)
+      // Only 'incorrect' counts as incorrect (target word has errors)
+      const isTargetWordCorrect = data.outcome === 'correct' || data.outcome === 'improve'
       setSessionStats((prev) => ({
         ...prev,
-        correct: prev.correct + (data.isCorrect ? 1 : 0),
-        incorrect: prev.incorrect + (data.isCorrect ? 0 : 1),
+        correct: prev.correct + (isTargetWordCorrect ? 1 : 0),
+        incorrect: prev.incorrect + (isTargetWordCorrect ? 0 : 1),
       }))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to evaluate translation')
@@ -116,7 +122,7 @@ export default function PracticeMode({ sessionType, wordId, onComplete, onBack }
   }
 
   const handleNext = async () => {
-    if (!sessionId || !currentExercise || isCorrect === null) return
+    if (!sessionId || !currentExercise || outcome === null) return
 
     try {
       await fetch('/api/sessions/record', {
@@ -126,15 +132,16 @@ export default function PracticeMode({ sessionType, wordId, onComplete, onBack }
           sessionId,
           userWordId: currentExercise.userWordId,
           mode: 'practice',
-          correct: isCorrect,
+          correct: outcome === 'correct' || outcome === 'improve',
         }),
       })
 
       // Reset for next question
       setUserTranslation('')
       setShowAnswer(false)
-      setIsCorrect(null)
+      setOutcome(null)
       setFeedback(null)
+      setSuggestedTranslation(null)
 
       if (currentIndex < exercises.length - 1) {
         setCurrentIndex(currentIndex + 1)
@@ -294,24 +301,36 @@ export default function PracticeMode({ sessionType, wordId, onComplete, onBack }
             />
           </div>
 
-          {showAnswer && (
-            <div className={`mt-6 p-4 rounded-lg ${isCorrect ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'}`}>
+          {showAnswer && outcome && (
+            <div className={`mt-6 p-4 rounded-lg ${
+              outcome === 'correct' ? 'bg-green-50 border border-green-200' :
+              outcome === 'improve' ? 'bg-blue-50 border border-blue-200' :
+              'bg-red-50 border border-red-200'
+            }`}>
               <div className="mb-3">
-                <span className={`font-semibold ${isCorrect ? 'text-green-800' : 'text-yellow-800'}`}>
-                  {isCorrect ? '✓ Great job!' : '⚠ Could be improved'}
+                <span className={`font-semibold ${
+                  outcome === 'correct' ? 'text-green-800' :
+                  outcome === 'improve' ? 'text-blue-800' :
+                  'text-red-800'
+                }`}>
+                  {outcome === 'correct' ? '✓ Excellent!' :
+                   outcome === 'improve' ? '~ Good, but could be improved' :
+                   '✗ Incorrect'}
                 </span>
               </div>
 
               <div className="space-y-2">
-                <div>
-                  <p className="text-sm font-semibold text-gray-700">Correct answer:</p>
-                  <p className="text-gray-900">{currentExercise.sentenceGerman}</p>
-                </div>
-
                 {userTranslation && (
                   <div>
                     <p className="text-sm font-semibold text-gray-700">Your answer:</p>
                     <p className="text-gray-900">{userTranslation}</p>
+                  </div>
+                )}
+
+                {suggestedTranslation && (
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">Suggested translation:</p>
+                    <p className="text-gray-900">{suggestedTranslation}</p>
                   </div>
                 )}
 

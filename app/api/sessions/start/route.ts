@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { selectWordsForSession } from '@/lib/spaced-repetition'
+import { getUserLLMConfig, LLMService } from '@/lib/llm/service'
 
 export async function POST(request: Request) {
   try {
@@ -179,45 +180,69 @@ async function generateRecallExercises(words: any[]) {
 async function generatePracticeExercises(words: any[], userId: string, supabase: any) {
   const exercises = []
 
+  // Get LLM config once for all exercises
+  const llmConfig = await getUserLLMConfig(supabase, userId)
+
   for (const userWord of words.slice(0, 5)) { // Limit to 5 for practice mode with AI
     const word = userWord.vocabulary
 
     if (!word) continue
 
-    // Generate practice sentence using API (it will use configured LLM)
+    // Generate practice sentence using LLM directly
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/practice/generate`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+      if (!llmConfig) {
+        throw new Error('AI provider not configured')
+      }
+
+      const llmService = new LLMService(llmConfig)
+      const englishTranslations = Array.isArray(word.english) ? word.english.join(', ') : word.english
+
+      const prompt = `Create a natural English sentence that, when translated to German, would use the word "${word.german}".
+
+Context:
+- German word: ${word.german}
+- English meaning: ${englishTranslations}
+- Word type: ${word.type}
+- Difficulty level: ${word.difficulty}
+
+IMPORTANT: The sentence should be at roughly the same CEFR language level (${word.difficulty}) as the word being practiced. Use appropriate vocabulary complexity, sentence structure, and grammar that matches this level. The sentence should be appropriate for a ${word.difficulty} German learner and naturally use the word in context.
+
+Return a JSON object with this structure:
+{
+  "sentenceEnglish": "The English sentence",
+  "sentenceGerman": "Die deutsche Übersetzung"
+}
+
+Return ONLY valid JSON, no markdown.`
+
+      const response = await llmService.generateCompletion(
+        [
+          {
+            role: 'user',
+            content: prompt,
           },
-          body: JSON.stringify({
-            word: word.german,
-            type: word.type,
-            difficulty: word.difficulty,
-            english: word.english,
-          }),
-        }
+        ],
+        { maxTokens: 512, model: 'fast' }
       )
 
-      if (response.ok) {
-        const data = await response.json()
-        exercises.push({
-          userWordId: userWord.id,
-          word: userWord,
-          sentenceGerman: data.sentenceGerman,
-          sentenceEnglish: data.sentenceEnglish,
-          targetWord: word.german,
-          difficulty: word.difficulty || 'A1',
-        })
-      }
+      const cleanedText = response.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+      const exerciseData = JSON.parse(cleanedText)
+
+      exercises.push({
+        userWordId: userWord.id,
+        word: userWord,
+        sentenceGerman: exerciseData.sentenceGerman,
+        sentenceEnglish: exerciseData.sentenceEnglish,
+        targetWord: word.german,
+        difficulty: word.difficulty || 'A1',
+      })
     } catch (error) {
       console.error('Failed to generate practice exercise:', error)
       // Fallback to example sentences if available
       if (word.examples && word.examples.length > 0) {
-        const example = word.examples[0]
+        // Random selection instead of always using [0]
+        const randomIndex = Math.floor(Math.random() * word.examples.length)
+        const example = word.examples[randomIndex]
         exercises.push({
           userWordId: userWord.id,
           word: userWord,

@@ -68,7 +68,7 @@ export default function ModeSelection({ onModeSelect }: ModeSelectionProps) {
                 onClick={() => onModeSelect(mode.id, 'quick')}
                 className="w-full bg-gray-200 text-gray-700 py-3 px-4 rounded-md hover:bg-gray-300 transition-colors font-medium"
               >
-                Quick Session (5 min)
+                Quick Session (5 words)
               </button>
             </div>
           </div>

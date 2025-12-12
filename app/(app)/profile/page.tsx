@@ -275,13 +275,35 @@ export default function ProfilePage() {
       const data = await response.json()
 
       if (response.ok && data.success) {
+        const successMessage = data.message || 'Connection successful!'
         setTestResults({
           ...testResults,
-          [provider]: { success: true, message: data.message || 'Connection successful!' },
+          [provider]: { success: true, message: successMessage },
         })
         // Also load models if not already loaded
         if (availableModels[provider].length === 0) {
-          await loadModelsForProvider(provider)
+          // Load models but preserve the connection test message
+          setLoadingModels({ ...loadingModels, [provider]: true })
+          try {
+            const modelsResponse = await fetch('/api/llm/list-models', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ provider, apiKey }),
+            })
+            const modelsData = await modelsResponse.json()
+            if (modelsResponse.ok && modelsData.models) {
+              setAvailableModels({ ...availableModels, [provider]: modelsData.models })
+              if (modelsData.models.length > 0 && !selectedModels[provider]) {
+                setSelectedModels({ ...selectedModels, [provider]: modelsData.models[0] })
+              }
+              // Keep the connection success message, don't overwrite with model count
+              console.log(`Loaded ${modelsData.models.length} models for ${provider}`)
+            }
+          } catch (err) {
+            console.error('Failed to load models:', err)
+          } finally {
+            setLoadingModels({ ...loadingModels, [provider]: false })
+          }
         }
       } else {
         throw new Error(data.error || 'Connection failed')
