@@ -197,7 +197,7 @@ async function generatePracticeExercises(words: any[], userId: string, supabase:
       const llmService = new LLMService(llmConfig)
       const englishTranslations = Array.isArray(word.english) ? word.english.join(', ') : word.english
 
-      const prompt = `Create a natural English sentence that, when translated to German, would use the word "${word.german}".
+      const prompt = `Create a simple natural English sentence that, when translated to German, would use the word "${word.german}".
 
 Context:
 - German word: ${word.german}
@@ -205,7 +205,7 @@ Context:
 - Word type: ${word.type}
 - Difficulty level: ${word.difficulty}
 
-IMPORTANT: The sentence should be at roughly the same CEFR language level (${word.difficulty}) as the word being practiced. Use appropriate vocabulary complexity, sentence structure, and grammar that matches this level. The sentence should be appropriate for a ${word.difficulty} German learner and naturally use the word in context.
+IMPORTANT: The sentence should be at roughly one CEFR language level than the word being practiced (${word.difficulty}). Use appropriate vocabulary complexity, sentence structure, and grammar that matches this level. The sentence should be appropriate for a ${word.difficulty} German learner and naturally use the word in context.
 
 Return a JSON object with this structure:
 {
