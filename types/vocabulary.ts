@@ -1,8 +1,23 @@
+// Supported languages
+export type Language =
+  | 'german'
+  | 'french'
+  | 'spanish'
+  | 'italian'
+  | 'portuguese'
+  | 'dutch'
+  | 'swedish'
+  | 'danish'
+  | 'norwegian'
+
 // Base entry structure
 export interface BaseVocabularyEntry {
   id: string
   type: WordType
-  german: string
+  language: Language
+  targetWord: string
+  // Legacy field for backward compatibility (maps to targetWord)
+  german?: string
   english: string[]
   difficulty?: Difficulty
   tags?: string[]
@@ -33,7 +48,11 @@ export type Gender = 'masculine' | 'feminine' | 'neuter'
 export type GrammaticalCase = 'accusative' | 'dative' | 'genitive'
 
 export interface Example {
-  german: string
+  // New field name (language-agnostic)
+  sentence?: string
+  // Legacy field names for backward compatibility
+  targetWord?: string
+  german?: string
   english: string
 }
 
@@ -266,6 +285,7 @@ export interface Profile {
   email: string
   full_name?: string | null
   target_daily_learning_time: number
+  target_language: Language
   claude_api_key?: string | null
   created_at: string
   updated_at: string

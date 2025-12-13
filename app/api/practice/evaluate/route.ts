@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { userTranslation, correctTranslation, englishPrompt, targetWord } = await request.json()
+    const { userTranslation, correctTranslation, englishPrompt, targetWord, targetLanguage } = await request.json()
 
     if (!userTranslation || !correctTranslation || !englishPrompt || !targetWord) {
       return NextResponse.json(
@@ -31,16 +31,20 @@ export async function POST(request: Request) {
       )
     }
 
+    // Get user's target language if not provided
+    const language = targetLanguage || 'German'
+    const languageCapitalized = language.charAt(0).toUpperCase() + language.slice(1)
+
     const llmService = new LLMService(llmConfig)
 
     const response = await llmService.generateCompletion(
       [
         {
           role: 'user',
-          content: `You are a German language teacher evaluating student translations in a vocabulary practice exercise.
+          content: `You are a ${languageCapitalized} language teacher evaluating student translations in a vocabulary practice exercise.
 
 English prompt: "${englishPrompt}"
-Student's German translation: "${userTranslation}"
+Student's ${languageCapitalized} translation: "${userTranslation}"
 TARGET WORD being practiced: "${targetWord}"
 
 EVALUATION CRITERIA:

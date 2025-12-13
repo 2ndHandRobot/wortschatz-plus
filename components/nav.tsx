@@ -3,11 +3,85 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useEffect, useState } from 'react'
+import { Language } from '@/types/vocabulary'
+
+const LANGUAGE_FLAGS: Record<Language, string> = {
+  german: '🇩🇪',
+  french: '🇫🇷',
+  spanish: '🇪🇸',
+  italian: '🇮🇹',
+  portuguese: '🇵🇹',
+  dutch: '🇳🇱',
+  swedish: '🇸🇪',
+  danish: '🇩🇰',
+  norwegian: '🇳🇴',
+}
+
+const LANGUAGE_NAMES: Record<Language, string> = {
+  german: 'German',
+  french: 'French',
+  spanish: 'Spanish',
+  italian: 'Italian',
+  portuguese: 'Portuguese',
+  dutch: 'Dutch',
+  swedish: 'Swedish',
+  danish: 'Danish',
+  norwegian: 'Norwegian',
+}
 
 export default function Nav() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const [targetLanguage, setTargetLanguage] = useState<Language>('german')
+  const [userId, setUserId] = useState<string | null>(null)
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false)
+
+  useEffect(() => {
+    fetchUserLanguage()
+  }, [])
+
+  const fetchUserLanguage = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserId(user.id)
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('target_language')
+          .eq('id', user.id)
+          .single()
+
+        if (profile?.target_language) {
+          setTargetLanguage(profile.target_language as Language)
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching user language:', err)
+    }
+  }
+
+  const handleLanguageChange = async (language: Language) => {
+    if (!userId) return
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ target_language: language })
+        .eq('id', userId)
+
+      if (error) throw error
+
+      setTargetLanguage(language)
+      setShowLanguageMenu(false)
+
+      // Force a full page reload to refresh all content
+      window.location.reload()
+    } catch (err) {
+      console.error('Error updating language:', err)
+    }
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -70,7 +144,57 @@ export default function Nav() {
               </Link>
             </div>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center gap-4">
+            {/* Language Selector */}
+            <div className="relative">
+              <button
+                onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+              >
+                <span className="text-xl">{LANGUAGE_FLAGS[targetLanguage]}</span>
+                <span className="hidden sm:inline">
+                  <span className="text-gray-500">Learning:</span>{' '}
+                  <span className="font-semibold">{LANGUAGE_NAMES[targetLanguage]}</span>
+                </span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showLanguageMenu && (
+                <>
+                  {/* Backdrop to close menu */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowLanguageMenu(false)}
+                  />
+
+                  {/* Dropdown menu */}
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                    <div className="py-1">
+                      {(Object.keys(LANGUAGE_NAMES) as Language[]).map((lang) => (
+                        <button
+                          key={lang}
+                          onClick={() => handleLanguageChange(lang)}
+                          className={`w-full text-left px-4 py-2 text-sm flex items-center gap-3 hover:bg-gray-100 ${
+                            lang === targetLanguage ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                          }`}
+                        >
+                          <span className="text-xl">{LANGUAGE_FLAGS[lang]}</span>
+                          <span>{LANGUAGE_NAMES[lang]}</span>
+                          {lang === targetLanguage && (
+                            <svg className="w-4 h-4 ml-auto" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             <button
               onClick={handleLogout}
               className="text-sm text-gray-500 hover:text-gray-700"

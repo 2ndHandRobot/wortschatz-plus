@@ -24,8 +24,17 @@ export async function POST(request: Request) {
 
     const { wordId, force } = await request.json()
 
+    // Get user's target language
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('target_language')
+      .eq('id', user.id)
+      .single()
+
+    const targetLanguage = profile?.target_language || 'german'
+
     // If wordId is provided, enrich only that word, otherwise enrich all incomplete words
-    let query = supabase.from('vocabulary').select('*')
+    let query = supabase.from('vocabulary').select('*').eq('language', targetLanguage)
 
     if (wordId) {
       query = query.eq('id', wordId)

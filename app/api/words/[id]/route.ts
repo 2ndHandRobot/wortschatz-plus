@@ -25,12 +25,13 @@ export async function DELETE(
     // Verify the word belongs to the user before attempting deletion
     const { data: userWord, error: fetchError } = await supabase
       .from('user_words')
-      .select('id, word_id, vocabulary(german)')
+      .select('id, word_id, vocabulary(target_word)')
       .eq('id', userWordId)
       .eq('user_id', user.id)
       .single()
 
     if (fetchError || !userWord) {
+      console.error('Failed to find user word:', fetchError)
       return NextResponse.json(
         { error: 'Word not found in your dictionary' },
         { status: 404 }

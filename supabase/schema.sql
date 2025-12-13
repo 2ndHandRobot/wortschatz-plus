@@ -7,6 +7,7 @@ CREATE TABLE profiles (
   email TEXT UNIQUE NOT NULL,
   full_name TEXT,
   target_daily_learning_time INTEGER DEFAULT 15, -- in minutes
+  target_language TEXT NOT NULL DEFAULT 'german' CHECK (target_language IN ('german', 'french', 'spanish', 'italian', 'portuguese', 'dutch', 'swedish', 'danish', 'norwegian')),
 
   -- LLM Provider Configuration
   selected_llm_provider TEXT DEFAULT 'anthropic' CHECK (selected_llm_provider IN ('anthropic', 'google', 'openai', 'deepseek')),
@@ -29,7 +30,8 @@ CREATE TABLE profiles (
 CREATE TABLE vocabulary (
   id TEXT PRIMARY KEY,
   type TEXT NOT NULL CHECK (type IN ('noun', 'verb', 'adjective', 'adverb', 'pronoun', 'article', 'preposition', 'conjunction', 'expression', 'collocation')),
-  german TEXT NOT NULL,
+  language TEXT NOT NULL DEFAULT 'german' CHECK (language IN ('german', 'french', 'spanish', 'italian', 'portuguese', 'dutch', 'swedish', 'danish', 'norwegian')),
+  target_word TEXT NOT NULL,
   english TEXT[] NOT NULL,
   difficulty TEXT CHECK (difficulty IN ('A1', 'A2', 'B1', 'B2', 'C1', 'C2')),
   tags TEXT[],
@@ -47,7 +49,7 @@ CREATE TABLE vocabulary (
 
   -- Verb-specific fields
   infinitive TEXT,
-  auxiliary TEXT CHECK (auxiliary IN ('haben', 'sein')),
+  auxiliary TEXT, -- Language-agnostic: haben/sein (German), avoir/être (French), haber/ser (Spanish), etc.
   separable JSONB,
   reflexive JSONB,
   transitivity TEXT CHECK (transitivity IN ('transitive', 'intransitive', 'both')),
@@ -197,7 +199,11 @@ CREATE INDEX idx_user_words_user_id ON user_words(user_id);
 CREATE INDEX idx_user_words_status ON user_words(status);
 CREATE INDEX idx_user_words_next_review ON user_words(next_review_date);
 CREATE INDEX idx_user_words_priority ON user_words(priority_score DESC);
-CREATE INDEX idx_vocabulary_german ON vocabulary(german);
+CREATE INDEX idx_vocabulary_language ON vocabulary(language);
+CREATE INDEX idx_vocabulary_language_target_word ON vocabulary(language, target_word);
+CREATE INDEX idx_vocabulary_language_type ON vocabulary(language, type);
+CREATE INDEX idx_vocabulary_language_difficulty ON vocabulary(language, difficulty);
+CREATE INDEX idx_vocabulary_target_word ON vocabulary(target_word);
 CREATE INDEX idx_vocabulary_type ON vocabulary(type);
 CREATE INDEX idx_vocabulary_difficulty ON vocabulary(difficulty);
 CREATE INDEX idx_word_info_items_user_word ON word_info_items(user_word_id);

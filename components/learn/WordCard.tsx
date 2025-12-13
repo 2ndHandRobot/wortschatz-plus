@@ -66,7 +66,7 @@ export default function WordCard({ word, hiddenItems = new Set(), onToggleInfo, 
         <div className="flex justify-between items-start gap-4">
           <div className="flex-1">
             <h2 className="text-4xl font-bold text-gray-900 mb-2">
-              {word.type === 'noun' && 'article' in word && word.article ? `${word.article} ` : ''}{word.german}
+              {word.type === 'noun' && 'article' in word && word.article ? `${word.article} ` : ''}{word.targetWord}
             </h2>
             <p className="text-lg text-gray-600">
               {word.type.charAt(0).toUpperCase() + word.type.slice(1)}
@@ -155,7 +155,7 @@ export default function WordCard({ word, hiddenItems = new Set(), onToggleInfo, 
           <div className="space-y-3">
             {word.examples.map((example, idx) => (
               <div key={idx} className="bg-gray-50 p-3 rounded">
-                <p className="text-gray-900 mb-1">{example.german}</p>
+                <p className="text-gray-900 mb-1">{example.sentence || example.german || example.targetWord || ''}</p>
                 <p className="text-gray-600 italic text-sm">{example.english}</p>
               </div>
             ))}

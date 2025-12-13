@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { selectWordsForSession } from '@/lib/spaced-repetition'
 import { getUserLLMConfig, LLMService } from '@/lib/llm/service'
+import { mapUserWordFromDb, getTargetWord } from '@/lib/vocabulary-utils'
 
 export async function POST(request: Request) {
   try {
@@ -23,6 +24,15 @@ export async function POST(request: Request) {
       )
     }
 
+    // Get user's target language
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('target_language')
+      .eq('id', user.id)
+      .single()
+
+    const targetLanguage = profile?.target_language || 'german'
+
     let selectedWords: any[] = []
 
     // If a specific word ID is provided, use only that word
@@ -40,23 +50,27 @@ export async function POST(request: Request) {
       if (wordError) throw wordError
 
       if (specificWord) {
-        selectedWords = [specificWord]
+        selectedWords = [mapUserWordFromDb(specificWord)]
       }
     } else {
-      // Fetch user words with vocabulary data
+      // Fetch user words with vocabulary data filtered by target language
       const { data: userWords, error: fetchError } = await supabase
         .from('user_words')
         .select(`
           *,
-          vocabulary (*)
+          vocabulary!inner (*)
         `)
         .eq('user_id', user.id)
+        .eq('vocabulary.language', targetLanguage)
 
       if (fetchError) throw fetchError
 
+      // Map database fields to TypeScript types
+      const mappedWords = (userWords || []).map(mapUserWordFromDb)
+
       // Select words based on mode and session type using spaced repetition algorithm
       selectedWords = selectWordsForSession(
-        userWords || [],
+        mappedWords,
         mode,
         sessionType
       )
@@ -96,7 +110,7 @@ export async function POST(request: Request) {
       responseData.exercises = await generateRecallExercises(selectedWords)
     } else if (mode === 'practice') {
       // For practice mode, generate translation exercises
-      responseData.exercises = await generatePracticeExercises(selectedWords, user.id, supabase)
+      responseData.exercises = await generatePracticeExercises(selectedWords, user.id, supabase, targetLanguage)
     }
 
     return NextResponse.json(responseData)
@@ -123,15 +137,17 @@ async function generateRecallExercises(words: any[]) {
     let answer = ''
     let context = ''
 
+    const targetWord = getTargetWord(word)
+
     if (word.type === 'noun') {
       // Ask for article and plural
       const questionType = Math.random() > 0.5 ? 'article' : 'plural'
       if (questionType === 'article' && word.article) {
-        question = `What is the article for "${word.german}"?`
+        question = `What is the article for "${targetWord}"?`
         answer = word.article
         context = `Meaning: ${word.english.join(', ')}`
       } else if (word.plural) {
-        question = `What is the plural form of "${word.german}"?`
+        question = `What is the plural form of "${targetWord}"?`
         answer = word.plural
         context = `Article: ${word.article || 'N/A'}`
       }
@@ -139,24 +155,24 @@ async function generateRecallExercises(words: any[]) {
       // Ask for conjugation or auxiliary
       const questionType = Math.random() > 0.5 ? 'perfect' : 'auxiliary'
       if (questionType === 'perfect' && word.conjugation?.perfect) {
-        question = `What is the past participle of "${word.german}"?`
+        question = `What is the past participle of "${targetWord}"?`
         answer = word.conjugation.perfect
         context = `Meaning: ${word.english.join(', ')}`
       } else if (word.auxiliary) {
-        question = `What is the auxiliary verb for "${word.german}"?`
+        question = `What is the auxiliary verb for "${targetWord}"?`
         answer = word.auxiliary
         context = `Meaning: ${word.english.join(', ')}`
       }
     } else if (word.type === 'adjective') {
       // Ask for comparative or superlative
       if (word.comparative) {
-        question = `What is the comparative form of "${word.german}"?`
+        question = `What is the comparative form of "${targetWord}"?`
         answer = word.comparative
         context = `Meaning: ${word.english.join(', ')}`
       }
     } else {
       // For other types, ask for translation
-      question = `Translate "${word.german}" to English`
+      question = `Translate "${targetWord}" to English`
       answer = word.english[0]
       context = `Type: ${word.type}`
     }
@@ -177,11 +193,14 @@ async function generateRecallExercises(words: any[]) {
 }
 
 // Helper function to generate practice exercises
-async function generatePracticeExercises(words: any[], userId: string, supabase: any) {
+async function generatePracticeExercises(words: any[], userId: string, supabase: any, targetLanguage: string) {
   const exercises = []
 
   // Get LLM config once for all exercises
   const llmConfig = await getUserLLMConfig(supabase, userId)
+
+  // Capitalize the language name for prompts
+  const languageCapitalized = targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1)
 
   for (const userWord of words.slice(0, 5)) { // Limit to 5 for practice mode with AI
     const word = userWord.vocabulary
@@ -196,21 +215,22 @@ async function generatePracticeExercises(words: any[], userId: string, supabase:
 
       const llmService = new LLMService(llmConfig)
       const englishTranslations = Array.isArray(word.english) ? word.english.join(', ') : word.english
+      const targetWord = getTargetWord(word)
 
-      const prompt = `Create a simple natural English sentence that, when translated to German, would use the word "${word.german}".
+      const prompt = `Create a simple natural English sentence that, when translated to ${languageCapitalized}, would use the word "${targetWord}".
 
 Context:
-- German word: ${word.german}
+- ${languageCapitalized} word: ${targetWord}
 - English meaning: ${englishTranslations}
 - Word type: ${word.type}
 - Difficulty level: ${word.difficulty}
 
-IMPORTANT: The sentence should be at roughly one CEFR language level than the word being practiced (${word.difficulty}). Use appropriate vocabulary complexity, sentence structure, and grammar that matches this level. The sentence should be appropriate for a ${word.difficulty} German learner and naturally use the word in context.
+IMPORTANT: The sentence should be at roughly one CEFR language level than the word being practiced (${word.difficulty}). Use appropriate vocabulary complexity, sentence structure, and grammar that matches this level. The sentence should be appropriate for a ${word.difficulty} ${languageCapitalized} learner and naturally use the word in context.
 
 Return a JSON object with this structure:
 {
   "sentenceEnglish": "The English sentence",
-  "sentenceGerman": "Die deutsche Übersetzung"
+  "sentenceGerman": "The ${languageCapitalized} translation"
 }
 
 Return ONLY valid JSON, no markdown.`
@@ -233,7 +253,7 @@ Return ONLY valid JSON, no markdown.`
         word: userWord,
         sentenceGerman: exerciseData.sentenceGerman,
         sentenceEnglish: exerciseData.sentenceEnglish,
-        targetWord: word.german,
+        targetWord: targetWord,
         difficulty: word.difficulty || 'A1',
       })
     } catch (error) {
@@ -243,12 +263,13 @@ Return ONLY valid JSON, no markdown.`
         // Random selection instead of always using [0]
         const randomIndex = Math.floor(Math.random() * word.examples.length)
         const example = word.examples[randomIndex]
+        const targetWord = getTargetWord(word)
         exercises.push({
           userWordId: userWord.id,
           word: userWord,
           sentenceGerman: example.german,
           sentenceEnglish: example.english,
-          targetWord: word.german,
+          targetWord: targetWord,
           difficulty: word.difficulty || 'A1',
         })
       }

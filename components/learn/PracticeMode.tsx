@@ -31,6 +31,7 @@ export default function PracticeMode({ sessionType, wordId, onComplete, onBack }
   const [outcome, setOutcome] = useState<'correct' | 'improve' | 'incorrect' | null>(null)
   const [suggestedTranslation, setSuggestedTranslation] = useState<string | null>(null)
   const [evaluating, setEvaluating] = useState(false)
+  const [targetLanguage, setTargetLanguage] = useState<string>('german')
   const [sessionStats, setSessionStats] = useState({
     correct: 0,
     incorrect: 0,
@@ -46,6 +47,13 @@ export default function PracticeMode({ sessionType, wordId, onComplete, onBack }
     setError(null)
 
     try {
+      // First, fetch user's target language from their profile
+      const profileResponse = await fetch('/api/profile')
+      if (profileResponse.ok) {
+        const profileData = await profileResponse.json()
+        setTargetLanguage(profileData.target_language || 'german')
+      }
+
       const response = await fetch('/api/sessions/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,6 +98,7 @@ export default function PracticeMode({ sessionType, wordId, onComplete, onBack }
           correctTranslation: currentExercise.sentenceGerman,
           englishPrompt: currentExercise.sentenceEnglish,
           targetWord: currentExercise.targetWord,
+          targetLanguage: targetLanguage,
         }),
       })
 

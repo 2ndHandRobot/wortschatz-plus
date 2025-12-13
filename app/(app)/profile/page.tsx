@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Profile } from '@/types/vocabulary'
+import { Profile, Language } from '@/types/vocabulary'
 import { LLM_PROVIDERS, LLMProvider } from '@/lib/llm/types'
 
 export default function ProfilePage() {
@@ -14,6 +14,7 @@ export default function ProfilePage() {
 
   const [fullName, setFullName] = useState('')
   const [targetTime, setTargetTime] = useState(15)
+  const [targetLanguage, setTargetLanguage] = useState<Language>('german')
   const [selectedProvider, setSelectedProvider] = useState<LLMProvider>('anthropic')
   const [apiKeys, setApiKeys] = useState({
     anthropic: '',
@@ -101,6 +102,7 @@ export default function ProfilePage() {
           setProfile(newData)
           setFullName(newData.full_name || '')
           setTargetTime(newData.target_daily_learning_time || 15)
+          setTargetLanguage(newData.target_language || 'german')
           setSelectedProvider(newData.selected_llm_provider || 'anthropic')
           setApiKeys({
             anthropic: newData.anthropic_api_key || '',
@@ -121,6 +123,7 @@ export default function ProfilePage() {
         setProfile(data)
         setFullName(data.full_name || '')
         setTargetTime(data.target_daily_learning_time || 15)
+        setTargetLanguage(data.target_language || 'german')
         setSelectedProvider(data.selected_llm_provider || 'anthropic')
         setApiKeys({
           anthropic: data.anthropic_api_key || '',
@@ -161,6 +164,7 @@ export default function ProfilePage() {
         .update({
           full_name: fullName || null,
           target_daily_learning_time: targetTime,
+          target_language: targetLanguage,
           selected_llm_provider: selectedProvider,
           anthropic_api_key: apiKeys.anthropic || null,
           google_api_key: apiKeys.google || null,
@@ -405,6 +409,34 @@ export default function ProfilePage() {
             />
             <p className="mt-1 text-sm text-gray-500">
               How many minutes per day you want to spend learning (5-120 minutes)
+            </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor="targetLanguage"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Target Language
+            </label>
+            <select
+              id="targetLanguage"
+              value={targetLanguage}
+              onChange={(e) => setTargetLanguage(e.target.value as Language)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="german">German</option>
+              <option value="french">French</option>
+              <option value="spanish">Spanish</option>
+              <option value="italian">Italian</option>
+              <option value="portuguese">Portuguese</option>
+              <option value="dutch">Dutch</option>
+              <option value="swedish">Swedish</option>
+              <option value="danish">Danish</option>
+              <option value="norwegian">Norwegian</option>
+            </select>
+            <p className="mt-1 text-sm text-gray-500">
+              Select the language you want to learn
             </p>
           </div>
 

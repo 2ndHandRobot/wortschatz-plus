@@ -1,13 +1,40 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { VocabularyEntry } from '@/types/vocabulary'
+import { VocabularyEntry, Language } from '@/types/vocabulary'
 import { createClient } from '@/lib/supabase/client'
+
+// Language display names
+const LANGUAGE_NAMES: Record<Language, string> = {
+  german: 'German',
+  french: 'French',
+  spanish: 'Spanish',
+  italian: 'Italian',
+  portuguese: 'Portuguese',
+  dutch: 'Dutch',
+  swedish: 'Swedish',
+  danish: 'Danish',
+  norwegian: 'Norwegian',
+}
+
+// Example words for each language
+const LANGUAGE_EXAMPLES: Record<Language, string> = {
+  german: 'e.g., gehen, Tisch, gut...',
+  french: 'e.g., aller, table, bon...',
+  spanish: 'e.g., ir, mesa, bueno...',
+  italian: 'e.g., andare, tavolo, buono...',
+  portuguese: 'e.g., ir, mesa, bom...',
+  dutch: 'e.g., gaan, tafel, goed...',
+  swedish: 'e.g., gå, bord, bra...',
+  danish: 'e.g., gå, bord, god...',
+  norwegian: 'e.g., gå, bord, god...',
+}
 
 export default function HomePage() {
   const [searchWord, setSearchWord] = useState('')
   const [loading, setLoading] = useState(false)
+  const [targetLanguage, setTargetLanguage] = useState<Language>('german')
   const [result, setResult] = useState<{
     rootForm: string
     entry: VocabularyEntry
@@ -20,6 +47,29 @@ export default function HomePage() {
     status: string
   } | null>(null)
   const supabase = createClient()
+
+  useEffect(() => {
+    fetchUserLanguage()
+  }, [])
+
+  const fetchUserLanguage = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('target_language')
+          .eq('id', user.id)
+          .single()
+
+        if (profile?.target_language) {
+          setTargetLanguage(profile.target_language)
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching user language:', err)
+    }
+  }
 
   const handleLookup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -106,7 +156,7 @@ export default function HomePage() {
           Welcome to WortSchatz+
         </h1>
         <p className="text-gray-600">
-          Look up German words and build your vocabulary
+          Look up {LANGUAGE_NAMES[targetLanguage]} words and build your vocabulary
         </p>
       </div>
 
@@ -117,14 +167,14 @@ export default function HomePage() {
               htmlFor="word"
               className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Enter a German word or phrase
+              Enter a {LANGUAGE_NAMES[targetLanguage]} word or phrase
             </label>
             <input
               type="text"
               id="word"
               value={searchWord}
               onChange={(e) => setSearchWord(e.target.value)}
-              placeholder="e.g., gehen, Tisch, gut..."
+              placeholder={LANGUAGE_EXAMPLES[targetLanguage]}
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               required
             />
@@ -157,7 +207,7 @@ export default function HomePage() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {result.entry.german}
+                  {(result.entry as any).target_word || result.entry.targetWord || result.entry.german}
                 </h2>
                 <p className="text-sm text-gray-500">
                   {result.entry.type} • {result.entry.difficulty || 'N/A'}
@@ -231,7 +281,7 @@ export default function HomePage() {
                   <h3 className="font-semibold text-gray-700">Examples:</h3>
                   {result.entry.examples.map((example, idx) => (
                     <div key={idx} className="mt-2">
-                      <p className="text-gray-900">{example.german}</p>
+                      <p className="text-gray-900">{example.sentence || example.german || example.targetWord || ''}</p>
                       <p className="text-gray-600 italic">{example.english}</p>
                     </div>
                   ))}

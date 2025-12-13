@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { UserWord, VocabularyEntry } from '@/types/vocabulary'
 import WordCard from '@/components/learn/WordCard'
 import WordEditForm from '@/components/vocabulary/WordEditForm'
+import { mapUserWordFromDb, getTargetWord } from '@/lib/vocabulary-utils'
 
 export default function DictionaryPage() {
   const [words, setWords] = useState<UserWord[]>([])
@@ -18,27 +19,62 @@ export default function DictionaryPage() {
   const [isNavOpen, setIsNavOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [targetLanguage, setTargetLanguage] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
-    fetchWords()
+    fetchUserLanguage()
   }, [])
+
+  useEffect(() => {
+    if (targetLanguage) {
+      fetchWords()
+    }
+  }, [targetLanguage])
+
+  const fetchUserLanguage = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('target_language')
+          .eq('id', user.id)
+          .single()
+
+        // Set the language from profile, or default to 'german' if not set
+        setTargetLanguage(profile?.target_language || 'german')
+      }
+    } catch (err) {
+      console.error('Error fetching user language:', err)
+      // Fallback to german on error
+      setTargetLanguage('german')
+    }
+  }
 
   const fetchWords = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
       const { data, error: fetchError } = await supabase
         .from('user_words')
         .select(`
           *,
-          vocabulary (*)
+          vocabulary!inner (*)
         `)
+        .eq('user_id', user.id)
+        .eq('vocabulary.language', targetLanguage)
 
       if (fetchError) throw fetchError
 
-      // Sort words alphabetically by the German root form
-      const sortedData = (data as UserWord[]).sort((a, b) => {
-        const wordA = a.vocabulary?.german.toLowerCase() || ''
-        const wordB = b.vocabulary?.german.toLowerCase() || ''
+      // Map database fields to TypeScript types
+      const mappedData = (data as any[]).map(mapUserWordFromDb)
+
+      // Sort words alphabetically by the target language root form
+      const sortedData = (mappedData as UserWord[]).sort((a, b) => {
+        const wordA = a.vocabulary ? getTargetWord(a.vocabulary).toLowerCase() : ''
+        const wordB = b.vocabulary ? getTargetWord(b.vocabulary).toLowerCase() : ''
         return wordA.localeCompare(wordB, 'de')
       })
 
@@ -128,6 +164,7 @@ export default function DictionaryPage() {
     const userWord = words.find(w => w.vocabulary?.id === selectedWord.id)
     if (!userWord) {
       setError('Word not found in your dictionary')
+      setShowDeleteConfirm(false)
       return
     }
 
@@ -135,26 +172,34 @@ export default function DictionaryPage() {
     setError(null)
 
     try {
+      console.log('Deleting word with user_word id:', userWord.id)
       const response = await fetch(`/api/words/${userWord.id}`, {
         method: 'DELETE',
       })
 
+      console.log('Delete response status:', response.status)
+
       if (!response.ok) {
         const result = await response.json()
+        console.error('Delete error:', result)
         throw new Error(result.error || 'Failed to remove word')
       }
 
-      // Remove word from local state immediately
-      setWords(prevWords => prevWords.filter(w => w.id !== userWord.id))
+      const successMessage = `"${getTargetWord(selectedWord)}" removed from your dictionary`
 
-      // Close modals
+      // Close modals and clear selection first
       setShowDeleteConfirm(false)
       setSelectedWord(null)
+      setIsEditing(false)
+
+      // Remove word from local state
+      setWords(prevWords => prevWords.filter(w => w.id !== userWord.id))
 
       // Show success message
-      setEnrichMessage(`"${selectedWord.german}" removed from your dictionary`)
+      setEnrichMessage(successMessage)
       setTimeout(() => setEnrichMessage(null), 3000)
     } catch (err) {
+      console.error('Failed to delete word:', err)
       setError(err instanceof Error ? err.message : 'Failed to remove word')
       setShowDeleteConfirm(false)
     } finally {
@@ -174,8 +219,8 @@ export default function DictionaryPage() {
 
       const vocab = word.vocabulary
 
-      // Search only in German word
-      return vocab.german.toLowerCase().includes(query)
+      // Search only in target language word
+      return getTargetWord(vocab).toLowerCase().includes(query)
     })
   }
 
@@ -185,12 +230,15 @@ export default function DictionaryPage() {
     const grouped: Record<string, UserWord[]> = {}
 
     filteredWords.forEach((word) => {
-      if (word.vocabulary?.german) {
-        const firstLetter = word.vocabulary.german[0].toUpperCase()
-        if (!grouped[firstLetter]) {
-          grouped[firstLetter] = []
+      if (word.vocabulary) {
+        const targetWord = getTargetWord(word.vocabulary)
+        if (targetWord) {
+          const firstLetter = targetWord[0].toUpperCase()
+          if (!grouped[firstLetter]) {
+            grouped[firstLetter] = []
+          }
+          grouped[firstLetter].push(word)
         }
-        grouped[firstLetter].push(word)
       }
     })
 
@@ -247,7 +295,7 @@ export default function DictionaryPage() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search German words..."
+              placeholder={`Search ${targetLanguage ? targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1) : ''} words...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -398,7 +446,7 @@ export default function DictionaryPage() {
                     >
                       <div className="mb-4">
                         <h3 className="text-xl font-bold text-gray-900">
-                          {vocab.type === 'noun' && 'article' in vocab && vocab.article ? `${vocab.article} ` : ''}{vocab.german}
+                          {vocab.type === 'noun' && 'article' in vocab && vocab.article ? `${vocab.article} ` : ''}{getTargetWord(vocab)}
                         </h3>
                         <p className="text-sm text-gray-500">
                           {vocab.type} • {vocab.difficulty || 'N/A'}
@@ -559,7 +607,7 @@ export default function DictionaryPage() {
             <div className="mb-4">
               <h3 className="text-xl font-bold text-gray-900 mb-2">Remove from Dictionary?</h3>
               <p className="text-gray-600">
-                Are you sure you want to remove <span className="font-semibold">"{selectedWord.german}"</span> from your dictionary?
+                Are you sure you want to remove <span className="font-semibold">"{getTargetWord(selectedWord)}"</span> from your dictionary?
               </p>
               <p className="text-gray-600 mt-2">
                 This will delete your learning progress for this word.
