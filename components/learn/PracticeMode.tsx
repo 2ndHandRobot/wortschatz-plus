@@ -282,11 +282,13 @@ export default function PracticeMode({ sessionType, wordId, onComplete, onBack }
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-900">
-                Translate to German:
+                Translate to {targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1)}:
               </h2>
-              <span className="text-sm bg-gray-100 px-3 py-1 rounded">
-                Focus: {currentExercise.targetWord}
-              </span>
+              {currentExercise.targetWord && (
+                <span className="text-sm bg-gray-100 px-3 py-1 rounded">
+                  Focus: {currentExercise.targetWord}
+                </span>
+              )}
             </div>
             <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
               <p className="text-lg text-gray-900">
@@ -297,13 +299,13 @@ export default function PracticeMode({ sessionType, wordId, onComplete, onBack }
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Your German translation:
+              Your {targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1)} translation:
             </label>
             <textarea
               value={userTranslation}
               onChange={(e) => setUserTranslation(e.target.value)}
               disabled={showAnswer || evaluating}
-              placeholder="Type your German translation here..."
+              placeholder={`Type your ${targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1)} translation here...`}
               rows={3}
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 text-lg disabled:bg-gray-100 resize-none"
               autoFocus

@@ -217,6 +217,12 @@ async function generatePracticeExercises(words: any[], userId: string, supabase:
       const englishTranslations = Array.isArray(word.english) ? word.english.join(', ') : word.english
       const targetWord = getTargetWord(word)
 
+      // Skip if targetWord is empty
+      if (!targetWord) {
+        console.error('Target word is empty for word:', word)
+        continue
+      }
+
       const prompt = `Create a simple natural English sentence that, when translated to ${languageCapitalized}, would use the word "${targetWord}".
 
 Context:
@@ -248,14 +254,17 @@ Return ONLY valid JSON, no markdown.`
       const cleanedText = response.content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
       const exerciseData = JSON.parse(cleanedText)
 
-      exercises.push({
+      const exercise = {
         userWordId: userWord.id,
         word: userWord,
         sentenceGerman: exerciseData.sentenceGerman,
         sentenceEnglish: exerciseData.sentenceEnglish,
         targetWord: targetWord,
         difficulty: word.difficulty || 'A1',
-      })
+      }
+
+      console.log('Generated exercise with targetWord:', exercise.targetWord)
+      exercises.push(exercise)
     } catch (error) {
       console.error('Failed to generate practice exercise:', error)
       // Fallback to example sentences if available
