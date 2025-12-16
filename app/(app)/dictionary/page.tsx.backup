@@ -32,10 +32,6 @@ export default function DictionaryPage() {
   const [wordListMemberships, setWordListMemberships] = useState<Map<string, string[]>>(new Map())
   const [selectedListId, setSelectedListId] = useState<string>('')
   const [loadingListFilter, setLoadingListFilter] = useState(false)
-  const [showCreateTag, setShowCreateTag] = useState(false)
-  const [newTagName, setNewTagName] = useState('')
-  const [newTagCategory, setNewTagCategory] = useState<'thematic' | 'situational' | 'custom'>('custom')
-  const [creatingTag, setCreatingTag] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -55,34 +51,6 @@ export default function DictionaryPage() {
       fetchListMembership(selectedListId)
     }
   }, [selectedListId])
-
-  // useEffect(() => {
-  //   if (selectedListId) {
-  //     console.log("selectedListId: ",selectedListId)
-  //   }
-  // }, [selectedListId])
-
-  useEffect(() => {
-    // Load list memberships for all lists when word detail modal is opened
-    if (selectedWord && userLists.length > 0) {
-      userLists.forEach((list) => {
-        if (!wordListMemberships.has(list.id)) {
-          fetchListMembership(list.id)
-        }
-      })
-    }
-  }, [selectedWord, userLists])
-
-  useEffect(() => {
-    // Load all list memberships when lists are fetched (for word card display)
-    if (userLists.length > 0 && words.length > 0) {
-      userLists.forEach((list) => {
-        if (!wordListMemberships.has(list.id)) {
-          fetchListMembership(list.id)
-        }
-      })
-    }
-  }, [userLists, words])
 
   const fetchTags = async () => {
     try {
@@ -113,27 +81,11 @@ export default function DictionaryPage() {
   const fetchListMembership = async (listId: string) => {
     try {
       setLoadingListFilter(true)
-      // const response = await fetch(`/api/lists/${listId}/items`)
       const response = await fetch(`/api/lists/${listId}`)
       if (!response.ok) return
       const data = await response.json()
       const items = data.list?.items || []
-
-      // Debug: log raw item structure
-      if (items.length > 0) {
-        console.log('First item structure:', items[0])
-        console.log('First item keys:', Object.keys(items[0]))
-      }
-
-      // Extract vocabulary IDs - check nested vocabulary object first
-      const vocabularyIds = items.map((item: any) => {
-        // Try nested vocabulary object first (this is the correct structure)
-        if (item.vocabulary?.id) return item.vocabulary.id
-        // Fallback to direct fields
-        return item.vocabularyId || item.vocabulary_id
-      }).filter(Boolean)
-
-      console.log('Fetched list membership:', { listId, itemCount: items.length, vocabularyIds })
+      const vocabularyIds = items.map((item: any) => item.vocabularyId)
 
       const newMemberships = new Map(wordListMemberships)
       newMemberships.set(listId, vocabularyIds)
@@ -231,50 +183,6 @@ export default function DictionaryPage() {
     }
   }
 
-  const handleCreateTag = async () => {
-    const trimmedName = newTagName.trim()
-    if (!trimmedName) return
-
-    setCreatingTag(true)
-    try {
-      const response = await fetch('/api/tags', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: trimmedName,
-          category: newTagCategory,
-        }),
-      })
-
-      if (!response.ok) {
-        const result = await response.json()
-        throw new Error(result.error || 'Failed to create tag')
-      }
-
-      const result = await response.json()
-
-      // Add new tag to allTags list
-      setAllTags([...allTags, result.tag])
-
-      // Reset form
-      setNewTagName('')
-      setNewTagCategory('custom')
-      setShowCreateTag(false)
-
-      // If in Word Details modal, automatically apply the new tag
-      if (selectedWord) {
-        const userWord = words.find(w => w.vocabulary?.id === selectedWord.id)
-        if (userWord) {
-          await handleToggleTag(result.tag.id)
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create tag')
-    } finally {
-      setCreatingTag(false)
-    }
-  }
-
   const handleAddToList = async (listId: string) => {
     if (!selectedWord) return
 
@@ -322,10 +230,8 @@ export default function DictionaryPage() {
       )
 
       setWordTags(tagsMap)
-      return tagsMap // Return the map so caller can use it for caching
     } catch (err) {
       console.error('Failed to fetch word tags:', err)
-      return new Map<string, WordTag[]>()
     }
   }
 
@@ -371,10 +277,7 @@ export default function DictionaryPage() {
             console.log('📦 Using cached dictionary data')
             setWords(cachedWords)
             if (cachedTags) {
-              const tagsMap = new Map<string, WordTag[]>(
-                Object.entries(cachedTags) as [string, WordTag[]][]
-              )
-              setWordTags(tagsMap)
+              setWordTags(new Map(Object.entries(cachedTags)))
             }
             setLoading(false)
             return
@@ -417,24 +320,27 @@ export default function DictionaryPage() {
       // Fetch tags for all words
       const userWordIds = sortedData.map(w => w.id)
       if (userWordIds.length > 0) {
-        const fetchedTagsMap = await fetchWordTags(userWordIds)
-        // Now save to cache with the fetched tags
-        try {
-          // Convert Map to object for JSON storage
-          const tagsObject: Record<string, WordTag[]> = {}
-          fetchedTagsMap.forEach((value, key) => {
-            tagsObject[key] = value
-          })
+        await fetchWordTags(userWordIds)
+        // fetchWordTags updates the state, but we need to wait for it
+        // We'll save the cache after tags are fetched
+        setTimeout(() => {
+          try {
+            // Convert Map to object for JSON storage
+            const tagsObject: Record<string, WordTag[]> = {}
+            wordTags.forEach((value, key) => {
+              tagsObject[key] = value
+            })
 
-          localStorage.setItem(CACHE_KEY, JSON.stringify({
-            words: sortedData,
-            wordTags: tagsObject,
-            timestamp: Date.now()
-          }))
-          console.log('💾 Cached dictionary data with tags')
-        } catch (err) {
-          console.error('Cache write error:', err)
-        }
+            localStorage.setItem(CACHE_KEY, JSON.stringify({
+              words: sortedData,
+              wordTags: tagsObject,
+              timestamp: Date.now()
+            }))
+            console.log('💾 Cached dictionary data')
+          } catch (err) {
+            console.error('Cache write error:', err)
+          }
+        }, 100)
       } else {
         // No tags, save cache immediately
         try {
@@ -608,20 +514,13 @@ export default function DictionaryPage() {
 
     // Filter by selected list
     if (selectedListId) {
-      const listMemberships = wordListMemberships.get(selectedListId)
-      console.log('Filtering by list:', { selectedListId, listMemberships, wordsCount: filtered.length })
-      // Only apply filter if we have loaded the membership data
-      if (listMemberships && listMemberships.length > 0) {
-        const beforeFilterCount = filtered.length
+      const selectedList = userLists.find(list => list.id === selectedListId)
+      if (selectedList) {
+        const listMemberships = wordListMemberships.get(selectedListId) || []
         filtered = filtered.filter((word) => {
           if (!word.vocabulary) return false
-          const isIncluded = listMemberships.includes(word.vocabulary.id)
-          if (beforeFilterCount <= 5) {
-            console.log('Checking word:', { wordId: word.vocabulary.id, isIncluded })
-          }
-          return isIncluded
+          return listMemberships.includes(word.vocabulary.id)
         })
-        console.log('After list filter:', { filtered: filtered.length, expected: listMemberships.length })
       }
     }
 
@@ -701,8 +600,8 @@ export default function DictionaryPage() {
           </button>
         </div>
 
-        {/* Search Bar and Filters - Sticky */}
-        <div className="sticky top-0 z-20 bg-gray-50 pt-4 pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        {/* Search Bar */}
+        <div className="mt-4">
           <div className="relative">
             <input
               type="text"
@@ -773,15 +672,17 @@ export default function DictionaryPage() {
               <option value="">---</option>
               {userLists.map((list) => (
                 <option key={list.id} value={list.id}>
-                  {list.name} ({list.itemCount || 0} words)
+                  {list.name} ({list.itemCount || 0})
                 </option>
               ))}
             </select>
+          </div>
 
-            {/* Tag Filter - on same line on desktop */}
-            {allTags.length > 0 && (
-              <>
-                <span className="text-sm font-medium text-gray-700 whitespace-nowrap ml-4">Filter by tags:</span>
+          {/* Tag Filter */}
+          {allTags.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium text-gray-700">Filter by tags:</span>
                 {allTags.map((tag) => (
                   <button
                     key={tag.id}
@@ -809,11 +710,10 @@ export default function DictionaryPage() {
                     Clear tag filters
                   </button>
                 )}
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          )}
         </div>
-        {/* End Sticky Section */}
 
         {enrichMessage && (
           <div className="mt-4 bg-green-50 border border-green-200 rounded-md p-4">
@@ -839,41 +739,14 @@ export default function DictionaryPage() {
           {groupWordsByLetter().length === 0 ? (
             <div className="bg-white rounded-lg shadow-md p-12 text-center">
               <p className="text-gray-600 mb-2">
-                {searchQuery.trim()
-                  ? `No words found matching "${searchQuery}"`
-                  : selectedListId
-                    ? `No words found in the selected list${loadingListFilter ? ' (loading...)' : ''}`
-                    : selectedTagIds.size > 0
-                      ? 'No words found with the selected tags'
-                      : 'No words found'
-                }
+                No words found matching "{searchQuery}"
               </p>
-              <div className="flex gap-2 justify-center">
-                {searchQuery.trim() && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="text-blue-600 hover:text-blue-700 text-sm"
-                  >
-                    Clear search
-                  </button>
-                )}
-                {selectedListId && (
-                  <button
-                    onClick={() => setSelectedListId('')}
-                    className="text-blue-600 hover:text-blue-700 text-sm"
-                  >
-                    Clear list filter
-                  </button>
-                )}
-                {selectedTagIds.size > 0 && (
-                  <button
-                    onClick={() => setSelectedTagIds(new Set())}
-                    className="text-blue-600 hover:text-blue-700 text-sm"
-                  >
-                    Clear tag filters
-                  </button>
-                )}
-              </div>
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-blue-600 hover:text-blue-700 text-sm"
+              >
+                Clear search
+              </button>
             </div>
           ) : (
             <div className="space-y-8">
@@ -900,7 +773,7 @@ export default function DictionaryPage() {
                         <p className="text-sm text-gray-500">
                           {vocab.type} • {vocab.difficulty || 'N/A'}
                         </p>
-                        <div className="mt-2">
+                        <div className="mt-2 flex items-center gap-2 flex-wrap">
                           <span
                             className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
                               userWord.status === 'mastered'
@@ -916,6 +789,11 @@ export default function DictionaryPage() {
                           >
                             {userWord.status}
                           </span>
+                          {wordTags.get(userWord.id)?.map((wordTag) => (
+                            wordTag.tag && (
+                              <TagBadge key={wordTag.id} tag={wordTag.tag} size="sm" />
+                            )
+                          ))}
                         </div>
                       </div>
 
@@ -947,51 +825,20 @@ export default function DictionaryPage() {
                         </p>
                       </div>
 
-                      {/* Tags and Lists at bottom */}
-                      <div className="mt-4 pt-4 border-t space-y-3">
-                        {/* Tags */}
-                        <div>
-                          <h5 className="text-xs font-semibold text-gray-500 uppercase mb-2">Tags</h5>
-                          <div className="flex flex-wrap gap-2">
-                            {wordTags.get(userWord.id)?.length ? (
-                              wordTags.get(userWord.id)?.map((wordTag) => (
-                                wordTag.tag && (
-                                  <TagBadge key={wordTag.id} tag={wordTag.tag} size="sm" />
-                                )
-                              ))
-                            ) : (
-                              <span className="text-xs text-gray-400">No tags</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Lists */}
-                        <div>
-                          <h5 className="text-xs font-semibold text-gray-500 uppercase mb-2">Lists</h5>
-                          <div className="flex flex-wrap gap-2">
-                            {(() => {
-                              const wordLists: string[] = []
-                              userLists.forEach((list) => {
-                                const listVocabIds = wordListMemberships.get(list.id) || []
-                                if (listVocabIds.includes(vocab.id)) {
-                                  wordLists.push(list.name)
-                                }
-                              })
-                              return wordLists.length > 0 ? (
-                                wordLists.map((listName, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="inline-block px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-800"
-                                  >
-                                    {listName}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-xs text-gray-400">No lists</span>
-                              )
-                            })()}
-                          </div>
-                        </div>
+                      <div className="mt-4 pt-4 border-t">
+                        <button
+                          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium text-sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const mode = userWord.status === 'revising' ? 'revise' :
+                                       userWord.status === 'recalling' ? 'recall' :
+                                       userWord.status === 'practicing' ? 'practice' :
+                                       'practice'
+                            window.location.href = `/learn?mode=${mode}&wordId=${userWord.id}`
+                          }}
+                        >
+                          Study
+                        </button>
                       </div>
                     </div>
                   )
@@ -1026,152 +873,7 @@ export default function DictionaryPage() {
                   </button>
                 }
               />
-              <div className="bg-white px-8 pb-6 rounded-b-lg -mt-2 space-y-4">
-                {/* Tags and Lists Display */}
-                {(() => {
-                  const userWord = words.find(w => w.vocabulary?.id === selectedWord.id)
-                  if (!userWord) return null
-                  const currentTags = wordTags.get(userWord.id) || []
-                  return (
-                    <div className="pt-2 pb-3 border-b space-y-3">
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-sm font-semibold text-gray-700">Tags</h4>
-                          <button
-                            onClick={() => {
-                              setShowManageTags(!showManageTags)
-                              if (showManageTags) {
-                                setShowCreateTag(false)
-                                setNewTagName('')
-                              }
-                            }}
-                            className="text-sm text-blue-600 hover:text-blue-800"
-                          >
-                            {showManageTags ? 'Done' : 'Manage'}
-                          </button>
-                        </div>
-                        {showManageTags ? (
-                          <div className="space-y-3">
-                            {/* Create Tag Form */}
-                            {showCreateTag ? (
-                              <div className="border rounded-lg p-3 bg-gray-50">
-                                <div className="space-y-2">
-                                  <input
-                                    type="text"
-                                    value={newTagName}
-                                    onChange={(e) => setNewTagName(e.target.value)}
-                                    placeholder="Tag name..."
-                                    className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        e.preventDefault()
-                                        handleCreateTag()
-                                      } else if (e.key === 'Escape') {
-                                        setShowCreateTag(false)
-                                        setNewTagName('')
-                                      }
-                                    }}
-                                    autoFocus
-                                  />
-                                  <div className="flex items-center gap-2">
-                                    <select
-                                      value={newTagCategory}
-                                      onChange={(e) => setNewTagCategory(e.target.value as 'thematic' | 'situational' | 'custom')}
-                                      className="flex-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                      <option value="custom">Custom</option>
-                                      <option value="thematic">Thematic</option>
-                                      <option value="situational">Situational</option>
-                                    </select>
-                                    <button
-                                      onClick={handleCreateTag}
-                                      disabled={!newTagName.trim() || creatingTag}
-                                      className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      {creatingTag ? 'Creating...' : 'Create'}
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setShowCreateTag(false)
-                                        setNewTagName('')
-                                      }}
-                                      className="px-4 py-2 border rounded-md text-sm font-medium hover:bg-gray-100"
-                                    >
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => setShowCreateTag(true)}
-                                className="w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-2"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Create New Tag
-                              </button>
-                            )}
-
-                            {/* Existing Tags */}
-                            {allTags.length > 0 && (
-                              <div className="flex flex-wrap gap-2">
-                                {allTags.map((tag) => {
-                                  const isApplied = currentTags.some(wt => wt.tagId === tag.id)
-                                  return (
-                                    <button
-                                      key={tag.id}
-                                      onClick={() => handleToggleTag(tag.id)}
-                                      disabled={managingTags}
-                                      className={`transition-all ${isApplied ? 'ring-2 ring-blue-500' : 'opacity-60 hover:opacity-100'}`}
-                                    >
-                                      <TagBadge tag={tag} size="sm" />
-                                    </button>
-                                  )
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            {currentTags.length === 0 ? (
-                              <p className="text-sm text-gray-500">No tags</p>
-                            ) : (
-                              currentTags.map((wt) => wt.tag && <TagBadge key={wt.id} tag={wt.tag} size="sm" />)
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-700 mb-2">In Lists</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {(() => {
-                            const listMemberships: string[] = []
-                            userLists.forEach((list) => {
-                              const listVocabIds = wordListMemberships.get(list.id) || []
-                              if (listVocabIds.includes(selectedWord.id)) {
-                                listMemberships.push(list.name)
-                              }
-                            })
-                            return listMemberships.length === 0 ? (
-                              <p className="text-sm text-gray-500">Not in any lists</p>
-                            ) : (
-                              listMemberships.map((listName, idx) => (
-                                <span
-                                  key={idx}
-                                  className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
-                                >
-                                  {listName}
-                                </span>
-                              ))
-                            )
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })()}
+              <div className="bg-white px-8 pb-6 rounded-b-lg -mt-2 space-y-3">
                 <button
                   onClick={() => {
                     // Find the user word that matches the selected vocabulary word

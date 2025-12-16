@@ -313,3 +313,57 @@ export interface SessionItem {
   attempts: number
   practicedAt: string
 }
+
+// User Tags System
+export type TagCategory = 'thematic' | 'situational' | 'custom'
+
+export interface UserTag {
+  id: string
+  userId: string
+  name: string
+  category?: TagCategory
+  color?: string // hex color for UI
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WordTag {
+  id: string
+  userWordId: string
+  tagId: string
+  taggedAt: string
+  tag?: UserTag // populated when joining
+}
+
+// Shareable Lists System
+export type ListAccessType = 'owner' | 'collaborator' | 'viewer'
+
+export interface WordList {
+  id: string
+  userId: string
+  name: string
+  description?: string
+  isPublic: boolean
+  shareCode?: string
+  language: Language
+  createdAt: string
+  updatedAt: string
+  itemCount?: number // computed field for UI
+}
+
+export interface WordListItem {
+  id: string
+  listId: string
+  vocabularyId: string
+  addedAt: string
+  addedBy?: string
+  vocabulary?: VocabularyEntry // populated when joining
+}
+
+export interface WordListAccess {
+  id: string
+  listId: string
+  userId: string
+  accessType: ListAccessType
+  grantedAt: string
+}

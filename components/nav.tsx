@@ -37,6 +37,7 @@ export default function Nav() {
   const [targetLanguage, setTargetLanguage] = useState<Language>('german')
   const [userId, setUserId] = useState<string | null>(null)
   const [showLanguageMenu, setShowLanguageMenu] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
 
   useEffect(() => {
     fetchUserLanguage()
@@ -133,6 +134,16 @@ export default function Nav() {
                 Learn
               </Link>
               <Link
+                href="/lists"
+                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                  pathname.startsWith('/lists')
+                    ? 'border-blue-500 text-gray-900'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                }`}
+              >
+                Lists
+              </Link>
+              <Link
                 href="/profile"
                 className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
                   isActive('/profile')
@@ -145,6 +156,25 @@ export default function Nav() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {/* Mobile menu button */}
+            <button
+              type="button"
+              className="sm:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              aria-expanded="false"
+            >
+              <span className="sr-only">Open main menu</span>
+              {showMobileMenu ? (
+                <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
+
             {/* Language Selector */}
             <div className="relative">
               <button
@@ -204,10 +234,12 @@ export default function Nav() {
           </div>
         </div>
       </div>
-      <div className="sm:hidden border-t border-gray-200">
-        <div className="pt-2 pb-3 space-y-1">
+      {showMobileMenu && (
+        <div className="sm:hidden border-t border-gray-200">
+          <div className="pt-2 pb-3 space-y-1">
           <Link
             href="/"
+            onClick={() => setShowMobileMenu(false)}
             className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
               isActive('/')
                 ? 'bg-blue-50 border-blue-500 text-blue-700'
@@ -218,6 +250,7 @@ export default function Nav() {
           </Link>
           <Link
             href="/dictionary"
+            onClick={() => setShowMobileMenu(false)}
             className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
               isActive('/dictionary')
                 ? 'bg-blue-50 border-blue-500 text-blue-700'
@@ -228,6 +261,7 @@ export default function Nav() {
           </Link>
           <Link
             href="/learn"
+            onClick={() => setShowMobileMenu(false)}
             className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
               isActive('/learn')
                 ? 'bg-blue-50 border-blue-500 text-blue-700'
@@ -237,7 +271,19 @@ export default function Nav() {
             Learn
           </Link>
           <Link
+            href="/lists"
+            onClick={() => setShowMobileMenu(false)}
+            className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
+              pathname.startsWith('/lists')
+                ? 'bg-blue-50 border-blue-500 text-blue-700'
+                : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            Lists
+          </Link>
+          <Link
             href="/profile"
+            onClick={() => setShowMobileMenu(false)}
             className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
               isActive('/profile')
                 ? 'bg-blue-50 border-blue-500 text-blue-700'
@@ -248,6 +294,7 @@ export default function Nav() {
           </Link>
         </div>
       </div>
+      )}
     </nav>
   )
 }
