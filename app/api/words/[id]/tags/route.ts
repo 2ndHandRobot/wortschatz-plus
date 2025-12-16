@@ -50,21 +50,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (error) throw error
 
     // Transform snake_case to camelCase for TypeScript
-    const transformedWordTags = wordTags?.map((wt: any) => ({
-      id: wt.id,
-      userWordId: wt.user_word_id,
-      tagId: wt.tag_id,
-      taggedAt: wt.tagged_at,
-      tag: wt.tag ? {
-        id: wt.tag.id,
-        userId: wt.tag.user_id,
-        name: wt.tag.name,
-        category: wt.tag.category,
-        color: wt.tag.color,
-        createdAt: wt.tag.created_at,
-        updatedAt: wt.tag.updated_at,
-      } : undefined
-    })) || []
+    const transformedWordTags = wordTags?.map((wt: any) => {
+      const tagData = Array.isArray(wt.tag) ? wt.tag[0] : wt.tag
+      return {
+        id: wt.id,
+        userWordId: wt.user_word_id,
+        tagId: wt.tag_id,
+        taggedAt: wt.tagged_at,
+        tag: tagData ? {
+          id: tagData.id,
+          userId: tagData.user_id,
+          name: tagData.name,
+          category: tagData.category,
+          color: tagData.color,
+          createdAt: tagData.created_at,
+          updatedAt: tagData.updated_at,
+        } : undefined
+      }
+    }) || []
 
     return NextResponse.json({ wordTags: transformedWordTags })
   } catch (error) {
@@ -155,19 +158,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (error) throw error
 
     // Transform snake_case to camelCase for TypeScript
+    const tagData = wordTag && wordTag.tag ? (Array.isArray(wordTag.tag) ? wordTag.tag[0] : wordTag.tag) : null
     const transformedWordTag = wordTag ? {
       id: wordTag.id,
       userWordId: wordTag.user_word_id,
       tagId: wordTag.tag_id,
       taggedAt: wordTag.tagged_at,
-      tag: wordTag.tag ? {
-        id: wordTag.tag.id,
-        userId: wordTag.tag.user_id,
-        name: wordTag.tag.name,
-        category: wordTag.tag.category,
-        color: wordTag.tag.color,
-        createdAt: wordTag.tag.created_at,
-        updatedAt: wordTag.tag.updated_at,
+      tag: tagData ? {
+        id: tagData.id,
+        userId: tagData.user_id,
+        name: tagData.name,
+        category: tagData.category,
+        color: tagData.color,
+        createdAt: tagData.created_at,
+        updatedAt: tagData.updated_at,
       } : undefined
     } : null
 

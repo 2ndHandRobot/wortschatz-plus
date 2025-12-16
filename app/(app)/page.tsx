@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { VocabularyEntry, Language } from '@/types/vocabulary'
 import { createClient } from '@/lib/supabase/client'
 
@@ -290,31 +289,6 @@ export default function HomePage() {
             </div>
           </div>
         )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Link
-          href="/learn"
-          className="block bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-        >
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            Start Learning
-          </h3>
-          <p className="text-gray-600">
-            Practice with Revise, Recall, and Practice modes
-          </p>
-        </Link>
-        <Link
-          href="/dictionary"
-          className="block bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-        >
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            My Dictionary
-          </h3>
-          <p className="text-gray-600">
-            View all words in your personal dictionary
-          </p>
-        </Link>
       </div>
     </div>
   )
