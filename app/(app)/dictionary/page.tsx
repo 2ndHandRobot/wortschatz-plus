@@ -7,6 +7,7 @@ import WordCard from '@/components/learn/WordCard'
 import WordEditForm from '@/components/vocabulary/WordEditForm'
 import { mapUserWordFromDb, getTargetWord } from '@/lib/vocabulary-utils'
 import TagBadge from '@/components/tags/TagBadge'
+import { dictionaryCache } from '@/lib/dictionary-cache'
 
 export default function DictionaryPage() {
   const [words, setWords] = useState<UserWord[]>([])
@@ -201,7 +202,10 @@ export default function DictionaryPage() {
         newTagsMap.set(userWord.id, updatedTags)
         setWordTags(newTagsMap)
 
-        invalidateCache()
+        // Update cache with new tags
+        if (targetLanguage) {
+          await dictionaryCache.updateWordTags(targetLanguage, userWord.id, updatedTags)
+        }
       } else {
         // Add tag
         const response = await fetch(`/api/words/${userWord.id}/tags`, {
@@ -218,11 +222,15 @@ export default function DictionaryPage() {
         const result = await response.json()
 
         // Update local state
+        const updatedTags = [...currentTags, result.wordTag]
         const newTagsMap = new Map(wordTags)
-        newTagsMap.set(userWord.id, [...currentTags, result.wordTag])
+        newTagsMap.set(userWord.id, updatedTags)
         setWordTags(newTagsMap)
 
-        invalidateCache()
+        // Update cache with new tags
+        if (targetLanguage) {
+          await dictionaryCache.updateWordTags(targetLanguage, userWord.id, updatedTags)
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update tags')
@@ -350,35 +358,22 @@ export default function DictionaryPage() {
   }
 
   const invalidateCache = () => {
-    const CACHE_KEY = `dictionary_words_${targetLanguage}`
-    localStorage.removeItem(CACHE_KEY)
-    console.log('🗑️ Cache invalidated')
+    if (!targetLanguage) return
+    dictionaryCache.invalidate(targetLanguage)
   }
 
   const fetchWords = async (forceRefresh = false) => {
-    const CACHE_KEY = `dictionary_words_${targetLanguage}`
-    const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+    if (!targetLanguage) return
 
-    // Try to use cache first
+    // Try to use cache first (unless force refresh)
     if (!forceRefresh) {
       try {
-        const cached = localStorage.getItem(CACHE_KEY)
+        const cached = await dictionaryCache.get(targetLanguage)
         if (cached) {
-          const { words: cachedWords, wordTags: cachedTags, timestamp } = JSON.parse(cached)
-          const age = Date.now() - timestamp
-
-          if (age < CACHE_DURATION) {
-            console.log('📦 Using cached dictionary data')
-            setWords(cachedWords)
-            if (cachedTags) {
-              const tagsMap = new Map<string, WordTag[]>(
-                Object.entries(cachedTags) as [string, WordTag[]][]
-              )
-              setWordTags(tagsMap)
-            }
-            setLoading(false)
-            return
-          }
+          setWords(cached.words)
+          setWordTags(cached.wordTags)
+          setLoading(false)
+          return
         }
       } catch (err) {
         console.error('Cache read error:', err)
@@ -416,37 +411,16 @@ export default function DictionaryPage() {
 
       // Fetch tags for all words
       const userWordIds = sortedData.map(w => w.id)
+      let fetchedTagsMap = new Map<string, WordTag[]>()
       if (userWordIds.length > 0) {
-        const fetchedTagsMap = await fetchWordTags(userWordIds)
-        // Now save to cache with the fetched tags
-        try {
-          // Convert Map to object for JSON storage
-          const tagsObject: Record<string, WordTag[]> = {}
-          fetchedTagsMap.forEach((value, key) => {
-            tagsObject[key] = value
-          })
+        fetchedTagsMap = await fetchWordTags(userWordIds)
+      }
 
-          localStorage.setItem(CACHE_KEY, JSON.stringify({
-            words: sortedData,
-            wordTags: tagsObject,
-            timestamp: Date.now()
-          }))
-          console.log('💾 Cached dictionary data with tags')
-        } catch (err) {
-          console.error('Cache write error:', err)
-        }
-      } else {
-        // No tags, save cache immediately
-        try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify({
-            words: sortedData,
-            wordTags: {},
-            timestamp: Date.now()
-          }))
-          console.log('💾 Cached dictionary data')
-        } catch (err) {
-          console.error('Cache write error:', err)
-        }
+      // Save to cache
+      try {
+        await dictionaryCache.set(targetLanguage, sortedData, fetchedTagsMap)
+      } catch (err) {
+        console.error('Cache write error:', err)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load words')
@@ -505,17 +479,30 @@ export default function DictionaryPage() {
         throw new Error(result.error || 'Failed to update word')
       }
 
-      // Invalidate cache since data changed
-      invalidateCache()
-
       // Update local state
-      setWords(prevWords =>
-        prevWords.map(w =>
-          w.vocabulary?.id === updatedWord.id
-            ? { ...w, vocabulary: result.word }
-            : w
+      const updatedUserWord = words.find(w => w.vocabulary?.id === updatedWord.id)
+      if (updatedUserWord && targetLanguage) {
+        const newUserWord = { ...updatedUserWord, vocabulary: result.word }
+
+        // Update cache with the modified word
+        await dictionaryCache.updateWord(targetLanguage, newUserWord)
+
+        // Update local state
+        setWords(prevWords =>
+          prevWords.map(w =>
+            w.vocabulary?.id === updatedWord.id ? newUserWord : w
+          )
         )
-      )
+      } else {
+        // Fallback: update local state only
+        setWords(prevWords =>
+          prevWords.map(w =>
+            w.vocabulary?.id === updatedWord.id
+              ? { ...w, vocabulary: result.word }
+              : w
+          )
+        )
+      }
 
       // Update selected word if it's the same
       if (selectedWord?.id === updatedWord.id) {
@@ -560,8 +547,10 @@ export default function DictionaryPage() {
 
       const successMessage = `"${getTargetWord(selectedWord)}" removed from your dictionary`
 
-      // Invalidate cache since data changed
-      invalidateCache()
+      // Update cache to remove the word
+      if (targetLanguage) {
+        await dictionaryCache.removeWord(targetLanguage, userWord.id)
+      }
 
       // Close modals and clear selection first
       setShowDeleteConfirm(false)

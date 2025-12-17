@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [fullName, setFullName] = useState('')
   const [targetTime, setTargetTime] = useState(15)
   const [targetLanguage, setTargetLanguage] = useState<Language>('german')
+  const [importDelayMs, setImportDelayMs] = useState(1500)
   const [selectedProvider, setSelectedProvider] = useState<LLMProvider>('anthropic')
   const [apiKeys, setApiKeys] = useState({
     anthropic: '',
@@ -103,6 +104,7 @@ export default function ProfilePage() {
           setFullName(newData.full_name || '')
           setTargetTime(newData.target_daily_learning_time || 15)
           setTargetLanguage(newData.target_language || 'german')
+          setImportDelayMs(newData.import_delay_ms || 1500)
           setSelectedProvider(newData.selected_llm_provider || 'anthropic')
           setApiKeys({
             anthropic: newData.anthropic_api_key || '',
@@ -124,6 +126,7 @@ export default function ProfilePage() {
         setFullName(data.full_name || '')
         setTargetTime(data.target_daily_learning_time || 15)
         setTargetLanguage(data.target_language || 'german')
+        setImportDelayMs(data.import_delay_ms || 1500)
         setSelectedProvider(data.selected_llm_provider || 'anthropic')
         setApiKeys({
           anthropic: data.anthropic_api_key || '',
@@ -165,6 +168,7 @@ export default function ProfilePage() {
           full_name: fullName || null,
           target_daily_learning_time: targetTime,
           target_language: targetLanguage,
+          import_delay_ms: importDelayMs,
           selected_llm_provider: selectedProvider,
           anthropic_api_key: apiKeys.anthropic || null,
           google_api_key: apiKeys.google || null,
@@ -437,6 +441,36 @@ export default function ProfilePage() {
             </select>
             <p className="mt-1 text-sm text-gray-500">
               Select the language you want to learn
+            </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor="importDelayMs"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Import Rate Limit (milliseconds)
+            </label>
+            <input
+              type="number"
+              id="importDelayMs"
+              value={importDelayMs}
+              onChange={(e) => setImportDelayMs(parseInt(e.target.value) || 1500)}
+              min="100"
+              max="10000"
+              step="100"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              Delay between enrichment requests during bulk imports. Default: 1500ms (40 requests/min).
+              Adjust based on your LLM provider rate limits:
+              <span className="block mt-1 text-xs">
+                • Anthropic (50 req/min): 1200ms or higher
+                <br />
+                • OpenAI (60 req/min): 1000ms or higher
+                <br />
+                • Google (60 req/min): 1000ms or higher
+              </span>
             </p>
           </div>
 

@@ -68,29 +68,33 @@ export async function POST(request: Request) {
       }
 
       try {
-        console.log(`Enriching word: ${entry.german}`)
+        console.log(`Enriching word: ${entry.target_word}`)
+
+        const languageName = targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1)
 
         const vocabResponse = await llmService.generateCompletion(
           [
             {
               role: 'user',
-              content: `You are a German language expert. Provide complete grammatical information for the German word/phrase "${entry.german}".
+              content: `You are a ${languageName} language expert. Provide complete grammatical information for the ${languageName} word/phrase "${entry.target_word}".
+
+IMPORTANT: If the input word includes an article (like "die Absage" in German), extract ONLY the root word for "targetWord" (e.g., "Absage") and store the article separately in the "article" field (e.g., "die"). Never duplicate the article in the targetWord.
 
 Return a JSON object with this structure (only include fields relevant to the word type):
 {
   "type": "noun|verb|adjective|adverb|pronoun|article|preposition|conjunction|expression|collocation",
-  "german": "${entry.german}",
+  "targetWord": "root word WITHOUT article",
   "english": ["translation1", "translation2"],
   "difficulty": "A1|A2|B1|B2|C1|C2",
-  "article": "der|die|das" (nouns only),
+  "article": "der|die|das" (nouns only, for German - extracted from input if present),
   "gender": "masculine|feminine|neuter" (nouns only),
   "plural": "plural form" (nouns only),
-  "genitive": "genitive form" (nouns only),
-  "weak": true/false (nouns only),
+  "genitive": "genitive form" (nouns only, for German),
+  "weak": true/false (nouns only, for German),
   "compound": {"isCompound": true/false, "components": []} (nouns only),
   "infinitive": "infinitive form" (verbs only),
-  "auxiliary": "haben|sein" (verbs only),
-  "separable": {"isSeparable": true/false, "prefix": "", "stem": ""} (separable verbs),
+  "auxiliary": "haben|sein" (verbs only, for German),
+  "separable": {"isSeparable": true/false, "prefix": "", "stem": ""} (separable verbs, for German),
   "reflexive": {"isReflexive": true/false, "reflexiveCase": "accusative|dative"} (reflexive verbs),
   "transitivity": "transitive|intransitive|both" (verbs only),
   "conjugation": {
@@ -98,7 +102,7 @@ Return a JSON object with this structure (only include fields relevant to the wo
     "preterite": {"ich": "", "du": "", "er_sie_es": "", "wir": "", "ihr": "", "sie_Sie": ""},
     "perfect": "past participle",
     "imperative": {"du": "", "ihr": "", "Sie": ""}
-  } (verbs only),
+  } (verbs only, for German - adapt for other languages),
   "prepositionCase": [{"preposition": "auf", "case": "accusative"}] (verbs/adjectives with prepositions),
   "base": "base form" (adjectives only),
   "comparative": "comparative form" (adjectives/adverbs),
@@ -125,7 +129,7 @@ Return a JSON object with this structure (only include fields relevant to the wo
   "strength": "strong|medium|weak" (collocations only),
   "alternative": "..." (collocations only),
   "notes": "usage notes",
-  "examples": [{"german": "example sentence", "english": "translation"}]
+  "examples": [{"${targetLanguage}": "example sentence", "english": "translation"}]
 }
 
 Return ONLY valid JSON, no markdown formatting.`,
@@ -209,14 +213,14 @@ Return ONLY valid JSON, no markdown formatting.`,
         }
 
         enrichedCount++
-        console.log(`Successfully enriched: ${entry.german}`)
+        console.log(`Successfully enriched: ${entry.target_word}`)
 
         // Add a small delay to avoid rate limiting
         await new Promise((resolve) => setTimeout(resolve, 500))
       } catch (error) {
-        console.error(`Error enriching ${entry.german}:`, error)
+        console.error(`Error enriching ${entry.target_word}:`, error)
         errors.push({
-          word: entry.german,
+          word: entry.target_word,
           error: error instanceof Error ? error.message : 'Unknown error',
         })
       }

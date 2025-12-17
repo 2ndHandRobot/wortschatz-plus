@@ -12,11 +12,18 @@ export default function ListsPage() {
   const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showSelectSourceModal, setShowSelectSourceModal] = useState(false)
+  const [importSource, setImportSource] = useState<'wortschatz' | 'csv' | 'googlesheet' | null>(null)
   const [creating, setCreating] = useState(false)
   const [newListName, setNewListName] = useState('')
   const [newListDescription, setNewListDescription] = useState('')
   const [language, setLanguage] = useState('german')
   const [shareCodeInput, setShareCodeInput] = useState('')
+  const [csvInput, setCsvInput] = useState('')
+  const [googleSheetUrl, setGoogleSheetUrl] = useState('')
+  const [importDestination, setImportDestination] = useState<'dictionary' | 'existing' | 'new'>('dictionary')
+  const [selectedListId, setSelectedListId] = useState<string>('')
+  const [newListForImport, setNewListForImport] = useState('')
 
   useEffect(() => {
     fetchLists()
@@ -81,7 +88,13 @@ export default function ListsPage() {
     }
   }
 
-  const handleImportList = (e: React.FormEvent) => {
+  const handleSelectSource = (source: 'wortschatz' | 'csv' | 'googlesheet') => {
+    setImportSource(source)
+    setShowSelectSourceModal(false)
+    setShowImportModal(true)
+  }
+
+  const handleImportWortschatz = (e: React.FormEvent) => {
     e.preventDefault()
     if (!shareCodeInput.trim()) return
 
@@ -100,6 +113,109 @@ export default function ListsPage() {
     router.push(`/shared/${shareCode}`)
   }
 
+  const handleImportCSV = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!csvInput.trim()) return
+
+    setCreating(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/words/import/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          csvData: csvInput,
+          destination: importDestination,
+          listId: importDestination === 'existing' ? selectedListId : undefined,
+          newListName: importDestination === 'new' ? newListForImport : undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to import CSV')
+      }
+
+      const data = await response.json()
+
+      // Refresh lists
+      await fetchLists()
+
+      // Show success message
+      alert(data.message)
+
+      // Redirect to the list if one was created/selected
+      if (data.listId) {
+        router.push(`/lists/${data.listId}`)
+      } else {
+        // Close modal and refresh
+        resetImportModal()
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import CSV')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleImportGoogleSheet = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!googleSheetUrl.trim()) return
+
+    setCreating(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/words/import/googlesheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          googleSheetUrl,
+          destination: importDestination,
+          listId: importDestination === 'existing' ? selectedListId : undefined,
+          newListName: importDestination === 'new' ? newListForImport : undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to import Google Sheet')
+      }
+
+      const data = await response.json()
+
+      // Refresh lists
+      await fetchLists()
+
+      // Show success message
+      alert(data.message)
+
+      // Redirect to the list if one was created/selected
+      if (data.listId) {
+        router.push(`/lists/${data.listId}`)
+      } else {
+        // Close modal and refresh
+        resetImportModal()
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import Google Sheet')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const resetImportModal = () => {
+    setShowImportModal(false)
+    setImportSource(null)
+    setShareCodeInput('')
+    setCsvInput('')
+    setGoogleSheetUrl('')
+    setImportDestination('dictionary')
+    setSelectedListId('')
+    setNewListForImport('')
+  }
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
@@ -112,26 +228,26 @@ export default function ListsPage() {
     <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <div className="flex justify-between items-start mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Word Lists</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">My WortSchatz Lists</h1>
           <p className="text-gray-600">
             {lists.length} {lists.length === 1 ? 'list' : 'lists'}
           </p>
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => setShowImportModal(true)}
+            onClick={() => setShowSelectSourceModal(true)}
             className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors font-medium flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Import List
+            Import Words
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
             className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors font-medium"
           >
-            Create List
+            Create WS List
           </button>
         </div>
       </div>
@@ -206,7 +322,7 @@ export default function ListsPage() {
             className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Create New List</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Create New WS List</h2>
 
             <form onSubmit={handleCreateList} className="space-y-4">
               <div>
@@ -283,52 +399,272 @@ export default function ListsPage() {
         </div>
       )}
 
-      {/* Import List Modal */}
-      {showImportModal && (
+      {/* Select Source Modal */}
+      {showSelectSourceModal && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowImportModal(false)}
+          onClick={() => setShowSelectSourceModal(false)}
         >
           <div
             className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Import Shared List</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Select Import Source</h2>
+            <p className="text-gray-600 mb-6">Choose where you want to import words from:</p>
 
-            <form onSubmit={handleImportList} className="space-y-4">
-              <div>
-                <label htmlFor="shareCode" className="block text-sm font-medium text-gray-700 mb-1">
-                  Share Code or URL
+            <div className="space-y-3">
+              <button
+                onClick={() => handleSelectSource('wortschatz')}
+                className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group"
+              >
+                <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold text-gray-900">WortSchatz List</div>
+                  <div className="text-sm text-gray-600">Import from a shared list code</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleSelectSource('csv')}
+                className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all group"
+              >
+                <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold text-gray-900">CSV Data</div>
+                  <div className="text-sm text-gray-600">Tab, comma, or semicolon delimited</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleSelectSource('googlesheet')}
+                className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all group"
+              >
+                <div className="flex-shrink-0 w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold text-gray-900">Google Sheet</div>
+                  <div className="text-sm text-gray-600">Import via share link</div>
+                </div>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowSelectSourceModal(false)}
+              className="w-full mt-4 bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal - Dynamic based on source */}
+      {showImportModal && importSource && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={resetImportModal}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              {importSource === 'wortschatz' && 'Import WortSchatz List'}
+              {importSource === 'csv' && 'Import CSV Data'}
+              {importSource === 'googlesheet' && 'Import Google Sheet'}
+            </h2>
+
+            <form
+              onSubmit={
+                importSource === 'wortschatz' ? handleImportWortschatz :
+                importSource === 'csv' ? handleImportCSV :
+                handleImportGoogleSheet
+              }
+              className="space-y-4"
+            >
+              {/* WortSchatz List Import */}
+              {importSource === 'wortschatz' && (
+                <div>
+                  <label htmlFor="shareCode" className="block text-sm font-medium text-gray-700 mb-1">
+                    Share Code or URL
+                  </label>
+                  <input
+                    id="shareCode"
+                    type="text"
+                    value={shareCodeInput}
+                    onChange={(e) => setShareCodeInput(e.target.value)}
+                    placeholder="e.g., vhMGHzCGEg or full URL"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                    autoFocus
+                  />
+                  <p className="mt-2 text-sm text-gray-500">
+                    Paste either the share code (e.g., <code className="bg-gray-100 px-1 rounded">vhMGHzCGEg</code>) or the full share URL.
+                  </p>
+                </div>
+              )}
+
+              {/* CSV Import */}
+              {importSource === 'csv' && (
+                <div>
+                  <label htmlFor="csvData" className="block text-sm font-medium text-gray-700 mb-1">
+                    CSV Data
+                  </label>
+                  <textarea
+                    id="csvData"
+                    value={csvInput}
+                    onChange={(e) => setCsvInput(e.target.value)}
+                    placeholder="word1,translation1&#10;word2,translation2&#10;word3,translation3"
+                    rows={8}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm resize-none"
+                    required
+                    autoFocus
+                  />
+                  <p className="mt-2 text-sm text-gray-500">
+                    Paste your data using tabs, commas, or semicolons as delimiters. First column: foreign word, Second column: translation.
+                  </p>
+                </div>
+              )}
+
+              {/* Google Sheet Import */}
+              {importSource === 'googlesheet' && (
+                <div>
+                  <label htmlFor="googleSheetUrl" className="block text-sm font-medium text-gray-700 mb-1">
+                    Google Sheet Share Link
+                  </label>
+                  <input
+                    id="googleSheetUrl"
+                    type="url"
+                    value={googleSheetUrl}
+                    onChange={(e) => setGoogleSheetUrl(e.target.value)}
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    required
+                    autoFocus
+                  />
+                  <p className="mt-2 text-sm text-gray-500">
+                    Make sure the sheet is shared with view access. First column should be the foreign word, second column the translation.
+                  </p>
+                </div>
+              )}
+
+              {/* Destination Selection */}
+              <div className="border-t pt-4 mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Where should these words go?
                 </label>
-                <input
-                  id="shareCode"
-                  type="text"
-                  value={shareCodeInput}
-                  onChange={(e) => setShareCodeInput(e.target.value)}
-                  placeholder="e.g., vhMGHzCGEg or full URL"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                  required
-                  autoFocus
-                />
-                <p className="mt-2 text-sm text-gray-500">
-                  Paste either the share code (e.g., <code className="bg-gray-100 px-1 rounded">vhMGHzCGEg</code>) or the full share URL.
-                </p>
+
+                <div className="space-y-2">
+                  <label className="flex items-center p-3 border rounded-md cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="destination"
+                      value="dictionary"
+                      checked={importDestination === 'dictionary'}
+                      onChange={(e) => setImportDestination(e.target.value as any)}
+                      className="mr-3"
+                    />
+                    <div>
+                      <div className="font-medium">Add to Dictionary</div>
+                      <div className="text-sm text-gray-600">Words will be added to your main dictionary only</div>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center p-3 border rounded-md cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="destination"
+                      value="existing"
+                      checked={importDestination === 'existing'}
+                      onChange={(e) => setImportDestination(e.target.value as any)}
+                      className="mr-3"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium">Add to Existing List</div>
+                      <div className="text-sm text-gray-600">Add to dictionary and an existing list</div>
+                    </div>
+                  </label>
+
+                  {importDestination === 'existing' && (
+                    <div className="ml-9 mt-2">
+                      <select
+                        value={selectedListId}
+                        onChange={(e) => setSelectedListId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        <option value="">Select a list...</option>
+                        {lists.map((list) => (
+                          <option key={list.id} value={list.id}>
+                            {list.name} ({list.itemCount || 0} words)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <label className="flex items-center p-3 border rounded-md cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="destination"
+                      value="new"
+                      checked={importDestination === 'new'}
+                      onChange={(e) => setImportDestination(e.target.value as any)}
+                      className="mr-3"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium">Create New List</div>
+                      <div className="text-sm text-gray-600">Add to dictionary and a new list</div>
+                    </div>
+                  </label>
+
+                  {importDestination === 'new' && (
+                    <div className="ml-9 mt-2">
+                      <input
+                        type="text"
+                        value={newListForImport}
+                        onChange={(e) => setNewListForImport(e.target.value)}
+                        placeholder="New list name"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                  <p className="text-red-800 text-sm">{error}</p>
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowImportModal(false)}
-                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors font-medium"
+                  onClick={resetImportModal}
+                  disabled={creating}
+                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 disabled:opacity-50 transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={!shareCodeInput.trim()}
+                  disabled={creating}
                   className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed transition-colors font-medium"
                 >
-                  Continue
+                  {creating ? 'Importing...' : 'Import'}
                 </button>
               </div>
             </form>
