@@ -61,6 +61,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ code
 export async function POST(request: Request, { params }: { params: Promise<{ code: string }> }) {
   try {
     const { code } = await params
+    const body = await request.json()
+    const { addToDictionary = true } = body // Default to true
+
     const supabase = await createClient()
     const {
       data: { user },
@@ -119,6 +122,66 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       }))
 
       await supabase.from('word_list_items').insert(itemsToInsert)
+
+      // Add words to user's dictionary if requested
+      if (addToDictionary) {
+        // Get existing user words to avoid duplicates
+        const { data: existingUserWords } = await supabase
+          .from('user_words')
+          .select('word_id')
+          .eq('user_id', user.id)
+          .in(
+            'word_id',
+            sharedItems.map((item) => item.vocabulary_id)
+          )
+
+        const existingWordIds = new Set(existingUserWords?.map((w) => w.word_id) || [])
+
+        // Filter out words that are already in user's dictionary
+        const newWordsToAdd = sharedItems
+          .filter((item) => !existingWordIds.has(item.vocabulary_id))
+          .map((item) => ({
+            user_id: user.id,
+            word_id: item.vocabulary_id,
+            status: 'revising',
+            priority_score: 80,
+            ease_factor: 2.5,
+            interval: 0,
+            repetitions: 0,
+            correct_count: 0,
+            incorrect_count: 0,
+            next_review_date: new Date().toISOString(),
+          }))
+
+        // Bulk insert new words into user_words
+        if (newWordsToAdd.length > 0) {
+          await supabase.from('user_words').insert(newWordsToAdd)
+        }
+
+        // Update priority for existing words
+        if (existingWordIds.size > 0) {
+          // Get full details of existing words to update priority
+          const { data: existingWords } = await supabase
+            .from('user_words')
+            .select('id, priority_score, status')
+            .eq('user_id', user.id)
+            .in('word_id', Array.from(existingWordIds))
+
+          // Update each existing word's priority
+          if (existingWords) {
+            for (const word of existingWords) {
+              const newPriorityScore = Math.min(word.priority_score + 10, 100)
+              await supabase
+                .from('user_words')
+                .update({
+                  priority_score: newPriorityScore,
+                  status: word.status === 'mastered' ? 'recalling' : word.status,
+                })
+                .eq('id', word.id)
+            }
+          }
+        }
+      }
     }
 
     return NextResponse.json({

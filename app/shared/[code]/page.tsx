@@ -16,6 +16,7 @@ export default function SharedListPage() {
   const [error, setError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [imported, setImported] = useState(false)
+  const [addToDictionary, setAddToDictionary] = useState(true)
 
   useEffect(() => {
     fetchSharedList()
@@ -51,7 +52,7 @@ export default function SharedListPage() {
       const response = await fetch(`/api/lists/shared/${shareCode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ addToDictionary }),
       })
 
       if (!response.ok) {
@@ -129,27 +130,40 @@ export default function SharedListPage() {
             </p>
           </div>
 
-          <button
-            onClick={handleImport}
-            disabled={importing || imported}
-            className="bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 disabled:bg-green-400 transition-colors font-medium flex items-center gap-2"
-          >
-            {imported ? (
-              <>
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                Imported!
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                {importing ? 'Importing...' : 'Import to My Lists'}
-              </>
-            )}
-          </button>
+          <div className="flex flex-col items-end gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={addToDictionary}
+                onChange={(e) => setAddToDictionary(e.target.checked)}
+                disabled={importing || imported}
+                className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500 disabled:opacity-50"
+              />
+              <span className="text-sm text-gray-700">Add to my dictionary</span>
+            </label>
+
+            <button
+              onClick={handleImport}
+              disabled={importing || imported}
+              className="bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 disabled:bg-green-400 transition-colors font-medium flex items-center gap-2"
+            >
+              {imported ? (
+                <>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Imported!
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  {importing ? 'Importing...' : 'Import to My Lists'}
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {imported && (

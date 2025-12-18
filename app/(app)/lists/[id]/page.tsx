@@ -107,7 +107,8 @@ export default function ListDetailPage() {
 
       if (!response.ok) throw new Error('Failed to remove word')
 
-      setItems(items.filter((item) => item.vocabularyId !== vocabularyId))
+      // Filter using the actual vocabulary id from the nested vocabulary object
+      setItems(items.filter((item) => item.vocabulary?.id !== vocabularyId))
       if (list) {
         setList({ ...list, itemCount: (list.itemCount || 0) - 1 })
       }
@@ -136,7 +137,7 @@ export default function ListDetailPage() {
   const handleRemoveFromDictionary = async (vocabularyId: string) => {
     try {
       // Find the user_word entry for this vocabulary ID
-      const item = items.find(i => i.vocabularyId === vocabularyId)
+      const item = items.find(i => i.vocabulary?.id === vocabularyId)
       const userWord = (item as any)?.userWord
 
       if (!userWord?.id) {
@@ -357,7 +358,7 @@ export default function ListDetailPage() {
                           {/* Add/Remove from dictionary buttons */}
                           {userWord ? (
                             <button
-                              onClick={() => handleRemoveFromDictionary(item.vocabularyId)}
+                              onClick={() => handleRemoveFromDictionary(vocab.id)}
                               className="text-orange-600 hover:text-orange-800"
                               aria-label="Remove from dictionary"
                               title="Remove from dictionary"
@@ -368,7 +369,7 @@ export default function ListDetailPage() {
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleAddToDictionary(item.vocabularyId)}
+                              onClick={() => handleAddToDictionary(vocab.id)}
                               className="text-blue-600 hover:text-blue-800"
                               aria-label="Add to dictionary"
                               title="Add to dictionary"
@@ -381,7 +382,7 @@ export default function ListDetailPage() {
 
                           {/* Remove from list button */}
                           <button
-                            onClick={() => handleRemoveWord(item.vocabularyId)}
+                            onClick={() => handleRemoveWord(vocab.id)}
                             className="text-red-600 hover:text-red-800"
                             aria-label="Remove from list"
                             title="Remove from list"
