@@ -151,7 +151,7 @@ async function debugFilterMismatch() {
 
   console.log(`\nMatched words (showing first 3):`)
   matchedWords.slice(0, 3).forEach((w: any) => {
-    console.log(`  ✓ ${w.vocabulary?.target_word} (${w.vocabulary?.id})`)
+    console.log(`  ✓ ${(w.vocabulary as any)?.target_word} (${(w.vocabulary as any)?.id})`)
   })
 
   console.log(`\nUnmatched words from list (showing first 10):`)
@@ -161,7 +161,7 @@ async function debugFilterMismatch() {
   })
   unmatchedFromList.slice(0, 10).forEach(id => {
     const item = items?.find((i: any) => i.vocabulary?.id === id)
-    console.log(`  ✗ ${item?.vocabulary?.target_word || 'unknown'} (${id})`)
+    console.log(`  ✗ ${(item?.vocabulary as any)?.target_word || 'unknown'} (${id})`)
   })
 }
 
