@@ -116,6 +116,47 @@ export default function ListDetailPage() {
     }
   }
 
+  const handleAddToDictionary = async (vocabularyId: string) => {
+    try {
+      const response = await fetch('/api/words', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vocabularyId }),
+      })
+
+      if (!response.ok) throw new Error('Failed to add word to dictionary')
+
+      // Refresh the list to get updated user_words data
+      await fetchList()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add word to dictionary')
+    }
+  }
+
+  const handleRemoveFromDictionary = async (vocabularyId: string) => {
+    try {
+      // Find the user_word entry for this vocabulary ID
+      const item = items.find(i => i.vocabularyId === vocabularyId)
+      const userWord = (item as any)?.userWord
+
+      if (!userWord?.id) {
+        setError('Word not found in dictionary')
+        return
+      }
+
+      const response = await fetch(`/api/words/${userWord.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) throw new Error('Failed to remove word from dictionary')
+
+      // Refresh the list to get updated user_words data
+      await fetchList()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove word from dictionary')
+    }
+  }
+
   const handleDeleteList = async () => {
     setDeleting(true)
     setError(null)
@@ -215,48 +256,152 @@ export default function ListDetailPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((item) => {
-            const vocab = item.vocabulary
-            if (!vocab) return null
+        <div>
+          <div className="mb-4">
+            <button
+              onClick={() => {
+                const wordIds = items.map(item => item.vocabularyId)
+                sessionStorage.setItem('studyWordIds', JSON.stringify(wordIds))
+                router.push('/learn?mode=study-selection')
+              }}
+              className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors font-medium"
+            >
+              Study ({items.length})
+            </button>
+          </div>
 
-            return (
-              <div
-                key={item.id}
-                className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="text-lg font-bold text-gray-900">
-                    {vocab.type === 'noun' && 'article' in vocab && vocab.article
-                      ? `${vocab.article} `
-                      : ''}
-                    {getTargetWord(vocab)}
-                  </h3>
-                  <button
-                    onClick={() => handleRemoveWord(item.vocabularyId)}
-                    className="text-red-600 hover:text-red-800"
-                    aria-label="Remove word"
-                  >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path
-                        fillRule="evenodd"
-                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                </div>
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Priority
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Word
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Difficulty
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Translation
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {items.map((item) => {
+                  const vocab = item.vocabulary
+                  if (!vocab) return null
 
-                <p className="text-sm text-gray-500 mb-2">
-                  {vocab.type} • {vocab.difficulty || 'N/A'}
-                </p>
+                  const priorityScore = (item as any).priorityScore
+                  const userWord = (item as any).userWord
 
-                <p className="text-gray-900 text-sm">
-                  <span className="font-semibold">Translation:</span> {vocab.english.join(', ')}
-                </p>
-              </div>
-            )
-          })}
+                  // Determine priority badge color
+                  let priorityColor = 'bg-gray-100 text-gray-800'
+                  if (priorityScore >= 80) {
+                    priorityColor = 'bg-red-100 text-red-800'
+                  } else if (priorityScore >= 60) {
+                    priorityColor = 'bg-orange-100 text-orange-800'
+                  } else if (priorityScore >= 40) {
+                    priorityColor = 'bg-yellow-100 text-yellow-800'
+                  } else if (priorityScore >= 20) {
+                    priorityColor = 'bg-green-100 text-green-800'
+                  }
+
+                  return (
+                    <tr key={item.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {userWord ? (
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${priorityColor}`}>
+                              {priorityScore}
+                            </span>
+                            <span className="text-xs text-gray-500 capitalize">{userWord.status}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-bold text-gray-900">
+                          {vocab.type === 'noun' && 'article' in vocab && vocab.article
+                            ? `${vocab.article} `
+                            : ''}
+                          {getTargetWord(vocab)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500 capitalize">{vocab.type}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{vocab.difficulty || 'N/A'}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{vocab.english.join(', ')}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end gap-2">
+                          {/* Dictionary status icon */}
+                          <div className={userWord ? 'text-green-600' : 'text-gray-400'} title={userWord ? 'In dictionary' : 'Not in dictionary'}>
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+                            </svg>
+                          </div>
+
+                          {/* Add/Remove from dictionary buttons */}
+                          {userWord ? (
+                            <button
+                              onClick={() => handleRemoveFromDictionary(item.vocabularyId)}
+                              className="text-orange-600 hover:text-orange-800"
+                              aria-label="Remove from dictionary"
+                              title="Remove from dictionary"
+                            >
+                              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleAddToDictionary(item.vocabularyId)}
+                              className="text-blue-600 hover:text-blue-800"
+                              aria-label="Add to dictionary"
+                              title="Add to dictionary"
+                            >
+                              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          )}
+
+                          {/* Remove from list button */}
+                          <button
+                            onClick={() => handleRemoveWord(item.vocabularyId)}
+                            className="text-red-600 hover:text-red-800"
+                            aria-label="Remove from list"
+                            title="Remove from list"
+                          >
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path
+                                fillRule="evenodd"
+                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

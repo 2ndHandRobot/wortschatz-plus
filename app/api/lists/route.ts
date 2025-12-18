@@ -18,17 +18,21 @@ export async function GET() {
       .from('word_lists')
       .select(`
         *,
-        word_list_items (count)
+        word_list_items (
+          id,
+          vocabulary_id,
+          vocabulary:vocabulary (id)
+        )
       `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
     if (error) throw error
 
-    // Transform the count data
+    // Transform the count data - only count items with valid vocabulary references
     const listsWithCounts = lists?.map((list) => ({
       ...list,
-      itemCount: list.word_list_items?.[0]?.count || 0,
+      itemCount: list.word_list_items?.filter((item: any) => item.vocabulary !== null).length || 0,
       word_list_items: undefined, // remove the raw count data
     }))
 

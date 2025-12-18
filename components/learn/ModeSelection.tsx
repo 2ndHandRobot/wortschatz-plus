@@ -6,9 +6,11 @@ type LearningMode = 'revise' | 'recall' | 'practice'
 
 interface ModeSelectionProps {
   onModeSelect: (mode: LearningMode, sessionType: SessionType) => void
+  wordIds?: string[] | null
+  isStudySelection?: boolean
 }
 
-export default function ModeSelection({ onModeSelect }: ModeSelectionProps) {
+export default function ModeSelection({ onModeSelect, wordIds, isStudySelection }: ModeSelectionProps) {
   const modes = [
     {
       id: 'revise' as LearningMode,
@@ -33,14 +35,19 @@ export default function ModeSelection({ onModeSelect }: ModeSelectionProps) {
     },
   ]
 
+  const wordCount = wordIds?.length || 0
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Start Learning
+          {isStudySelection ? 'Study Filtered Words' : 'Start Learning'}
         </h1>
         <p className="text-lg text-gray-600">
-          Choose a learning mode and session type
+          {isStudySelection
+            ? `Study ${wordCount} ${wordCount === 1 ? 'word' : 'words'} from your filtered selection`
+            : 'Choose a learning mode and session type'
+          }
         </p>
       </div>
 
@@ -62,7 +69,7 @@ export default function ModeSelection({ onModeSelect }: ModeSelectionProps) {
                 onClick={() => onModeSelect(mode.id, 'complete')}
                 className={`w-full ${mode.color} text-white py-3 px-4 rounded-md transition-colors font-medium`}
               >
-                Complete Session
+                {isStudySelection ? `Complete Session (20 words)` : 'Complete Session'}
               </button>
               <button
                 onClick={() => onModeSelect(mode.id, 'quick')}

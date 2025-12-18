@@ -6,6 +6,7 @@ import { SessionType, UserWord } from '@/types/vocabulary'
 interface RecallModeProps {
   sessionType: SessionType
   wordId?: string | null
+  wordIds?: string[] | null
   onComplete: (sessionId: string) => void
   onBack: () => void
 }
@@ -20,7 +21,7 @@ interface RecallExercise {
   context?: string
 }
 
-export default function RecallMode({ sessionType, wordId, onComplete, onBack }: RecallModeProps) {
+export default function RecallMode({ sessionType, wordId, wordIds, onComplete, onBack }: RecallModeProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -78,6 +79,7 @@ export default function RecallMode({ sessionType, wordId, onComplete, onBack }: 
           sessionType,
           mode: 'recall',
           wordId,
+          wordIds,
         }),
       })
 

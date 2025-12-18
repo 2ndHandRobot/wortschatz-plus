@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { calculatePriorityScore } from '@/lib/spaced-repetition'
 
 // GET - Fetch a specific list by ID with its items
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -42,11 +43,63 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (itemsError) throw itemsError
 
+    // Fetch user_words data for priority calculation (only for user's own list)
+    let itemsWithPriority = items || []
+
+    if (list.user_id === user.id && items && items.length > 0) {
+      const vocabularyIds = items.map(item => item.vocabulary_id)
+
+      const { data: userWords, error: userWordsError } = await supabase
+        .from('user_words')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('word_id', vocabularyIds)
+
+      if (!userWordsError && userWords) {
+        // Create a map of vocabulary_id -> user_word
+        const userWordMap = new Map(userWords.map(uw => [uw.word_id, uw]))
+
+        // Add priority scores to items
+        itemsWithPriority = items.map(item => {
+          const userWord = userWordMap.get(item.vocabulary_id)
+
+          if (userWord) {
+            const priorityScore = calculatePriorityScore({
+              status: userWord.status,
+              nextReviewDate: userWord.next_review_date,
+              easeFactor: userWord.ease_factor,
+              repetitions: userWord.repetitions,
+              incorrectCount: userWord.incorrect_count,
+              correctCount: userWord.correct_count,
+              lastPracticed: userWord.last_practiced,
+              addedAt: userWord.added_at,
+              difficulty: item.vocabulary?.difficulty || null,
+            })
+
+            return {
+              ...item,
+              priorityScore,
+              userWord,
+            }
+          }
+
+          return {
+            ...item,
+            priorityScore: 0, // Not in user's dictionary
+            userWord: null,
+          }
+        })
+
+        // Sort by priority (highest first)
+        itemsWithPriority.sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0))
+      }
+    }
+
     return NextResponse.json({
       list: {
         ...list,
-        items,
-        itemCount: items?.length || 0,
+        items: itemsWithPriority,
+        itemCount: itemsWithPriority?.length || 0,
       },
     })
   } catch (error) {

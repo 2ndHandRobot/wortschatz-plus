@@ -24,6 +24,7 @@ export default function ListsPage() {
   const [importDestination, setImportDestination] = useState<'dictionary' | 'existing' | 'new'>('dictionary')
   const [selectedListId, setSelectedListId] = useState<string>('')
   const [newListForImport, setNewListForImport] = useState('')
+  const [addToDictionary, setAddToDictionary] = useState(true)
 
   useEffect(() => {
     fetchLists()
@@ -129,6 +130,7 @@ export default function ListsPage() {
           destination: importDestination,
           listId: importDestination === 'existing' ? selectedListId : undefined,
           newListName: importDestination === 'new' ? newListForImport : undefined,
+          addToDictionary,
         }),
       })
 
@@ -175,6 +177,7 @@ export default function ListsPage() {
           destination: importDestination,
           listId: importDestination === 'existing' ? selectedListId : undefined,
           newListName: importDestination === 'new' ? newListForImport : undefined,
+          addToDictionary,
         }),
       })
 
@@ -214,6 +217,7 @@ export default function ListsPage() {
     setImportDestination('dictionary')
     setSelectedListId('')
     setNewListForImport('')
+    setAddToDictionary(true)
   }
 
   if (loading) {
@@ -556,6 +560,26 @@ export default function ListsPage() {
                   <p className="mt-2 text-sm text-gray-500">
                     Make sure the sheet is shared with view access. First column should be the foreign word, second column the translation.
                   </p>
+                </div>
+              )}
+
+              {/* Add to Dictionary Checkbox */}
+              {(importSource === 'csv' || importSource === 'googlesheet') && (
+                <div className="border-t pt-4 mt-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={addToDictionary}
+                      onChange={(e) => setAddToDictionary(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <div>
+                      <div className="font-medium text-gray-900">Add to my dictionary</div>
+                      <div className="text-sm text-gray-600">
+                        Creates user_words entries for spaced repetition learning
+                      </div>
+                    </div>
+                  </label>
                 </div>
               )}
 

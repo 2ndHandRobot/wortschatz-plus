@@ -164,7 +164,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { googleSheetUrl, destination, listId, newListName } = await request.json()
+    const { googleSheetUrl, destination, listId, newListName, addToDictionary = true } = await request.json()
 
     if (!googleSheetUrl) {
       return NextResponse.json({ error: 'Google Sheet URL is required' }, { status: 400 })
@@ -388,27 +388,29 @@ export async function POST(request: Request) {
           await new Promise((resolve) => setTimeout(resolve, importDelayMs))
         }
 
-        // Add to user_words if not already present
-        const { data: existingUserWord } = await supabase
-          .from('user_words')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('word_id', vocabularyId)
-          .single()
+        // Add to user_words if addToDictionary is true and not already present
+        if (addToDictionary) {
+          const { data: existingUserWord } = await supabase
+            .from('user_words')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('word_id', vocabularyId)
+            .single()
 
-        if (!existingUserWord) {
-          await supabase.from('user_words').insert({
-            user_id: user.id,
-            word_id: vocabularyId,
-            status: 'revising',
-            priority_score: 80,
-            ease_factor: 2.5,
-            interval: 0,
-            repetitions: 0,
-            correct_count: 0,
-            incorrect_count: 0,
-            next_review_date: new Date().toISOString(),
-          })
+          if (!existingUserWord) {
+            await supabase.from('user_words').insert({
+              user_id: user.id,
+              word_id: vocabularyId,
+              status: 'revising',
+              priority_score: 80,
+              ease_factor: 2.5,
+              interval: 0,
+              repetitions: 0,
+              correct_count: 0,
+              incorrect_count: 0,
+              next_review_date: new Date().toISOString(),
+            })
+          }
         }
 
         // Add to list if destination is 'existing' or 'new'

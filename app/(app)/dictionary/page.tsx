@@ -37,6 +37,7 @@ export default function DictionaryPage() {
   const [newTagName, setNewTagName] = useState('')
   const [newTagCategory, setNewTagCategory] = useState<'thematic' | 'situational' | 'custom'>('custom')
   const [creatingTag, setCreatingTag] = useState(false)
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -674,131 +675,174 @@ export default function DictionaryPage() {
               {words.length} {words.length === 1 ? 'word' : 'words'} in your collection
             </p>
           </div>
-          <button
-            onClick={() => {
-              invalidateCache()
-              setLoading(true)
-              fetchWords(true)
-            }}
-            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors flex items-center gap-2"
-            title="Refresh dictionary"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh
-          </button>
+          <div className="flex gap-2">
+            {filterWords().length > 0 && (
+              <button
+                onClick={() => {
+                  const filteredWordIds = filterWords().map(w => w.id)
+                  sessionStorage.setItem('studyWordIds', JSON.stringify(filteredWordIds))
+                  window.location.href = '/learn?mode=study-selection'
+                }}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+                title="Study filtered words"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                Study ({filterWords().length})
+              </button>
+            )}
+            <button
+              onClick={() => {
+                invalidateCache()
+                setLoading(true)
+                fetchWords(true)
+              }}
+              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 transition-colors flex items-center gap-2"
+              title="Refresh dictionary"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Search Bar and Filters - Sticky */}
         <div className="sticky top-0 z-20 bg-gray-50 pt-4 pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder={`Search ${targetLanguage ? targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1) : ''} words...`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <svg
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-            </svg>
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          <div className="flex gap-2 items-center">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder={`Search ${targetLanguage ? targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1) : ''} words...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <svg
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
-                <svg className="h-5 w-5" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
-                  <path d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-              </button>
-            )}
+                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-5 w-5" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                    <path d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* Filters button - visible only on mobile */}
+            <button
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+              className="lg:hidden flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+              title="Toggle filters"
+            >
+              <svg className="h-5 w-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              {(selectedTagIds.size > 0 || selectedListId) && (
+                <span className="ml-2 px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white rounded-full">
+                  {selectedTagIds.size + (selectedListId ? 1 : 0)}
+                </span>
+              )}
+            </button>
           </div>
-        </div>
 
-        {/* Filters Section */}
-        <div className="mt-4 space-y-3">
-          {/* Jump to Letter Dropdown */}
-          <div className="flex items-center gap-3">
-            <label htmlFor="jumpTo" className="text-sm font-medium text-gray-700 whitespace-nowrap">
-              Jump to:
-            </label>
-            <select
-              id="jumpTo"
-              onChange={(e) => {
-                if (e.target.value) {
-                  document.getElementById(`letter-${e.target.value}`)?.scrollIntoView({ behavior: 'smooth' })
-                }
-              }}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              <option value="">Select letter...</option>
-              {groupWordsByLetter().map(({ letter }) => (
-                <option key={letter} value={letter}>
-                  {letter}
-                </option>
-              ))}
-            </select>
+          {/* Filters Section - Always visible on desktop, collapsible on mobile */}
+          <div className={`mt-4 space-y-3 ${showMobileFilters ? 'block' : 'hidden lg:block'}`}>
+            {/* Jump to Letter & List Filter - Stack on mobile, inline on desktop */}
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+              {/* Jump to Letter Dropdown */}
+              <div className="flex items-center gap-3">
+                <label htmlFor="jumpTo" className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                  Jump to:
+                </label>
+                <select
+                  id="jumpTo"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      document.getElementById(`letter-${e.target.value}`)?.scrollIntoView({ behavior: 'smooth' })
+                    }
+                  }}
+                  className="flex-1 lg:flex-none px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Select letter...</option>
+                  {groupWordsByLetter().map(({ letter }) => (
+                    <option key={letter} value={letter}>
+                      {letter}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            {/* List Filter Dropdown */}
-            <label htmlFor="listFilter" className="text-sm font-medium text-gray-700 whitespace-nowrap ml-4">
-              Filter by list:
-            </label>
-            <select
-              id="listFilter"
-              value={selectedListId}
-              onChange={(e) => setSelectedListId(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              disabled={loadingListFilter}
-            >
-              <option value="">---</option>
-              {userLists.map((list) => (
-                <option key={list.id} value={list.id}>
-                  {list.name} ({list.itemCount || 0} words)
-                </option>
-              ))}
-            </select>
+              {/* List Filter Dropdown */}
+              <div className="flex items-center gap-3">
+                <label htmlFor="listFilter" className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                  Filter by list:
+                </label>
+                <select
+                  id="listFilter"
+                  value={selectedListId}
+                  onChange={(e) => setSelectedListId(e.target.value)}
+                  className="flex-1 lg:flex-none px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  disabled={loadingListFilter}
+                >
+                  <option value="">---</option>
+                  {userLists.map((list) => (
+                    <option key={list.id} value={list.id}>
+                      {list.name} ({list.itemCount || 0} words)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-            {/* Tag Filter - on same line on desktop */}
+            {/* Tag Filter - Separate row */}
             {allTags.length > 0 && (
-              <>
-                <span className="text-sm font-medium text-gray-700 whitespace-nowrap ml-4">Filter by tags:</span>
-                {allTags.map((tag) => (
-                  <button
-                    key={tag.id}
-                    onClick={() => {
-                      const newSelected = new Set(selectedTagIds)
-                      if (newSelected.has(tag.id)) {
-                        newSelected.delete(tag.id)
-                      } else {
-                        newSelected.add(tag.id)
-                      }
-                      setSelectedTagIds(newSelected)
-                    }}
-                    className={`transition-opacity ${
-                      selectedTagIds.has(tag.id) ? 'opacity-100 ring-2 ring-blue-500' : 'opacity-60 hover:opacity-100'
-                    }`}
-                  >
-                    <TagBadge tag={tag} size="sm" />
-                  </button>
-                ))}
-                {selectedTagIds.size > 0 && (
-                  <button
-                    onClick={() => setSelectedTagIds(new Set())}
-                    className="text-sm text-blue-600 hover:text-blue-800 underline"
-                  >
-                    Clear tag filters
-                  </button>
-                )}
-              </>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <span className="text-sm font-medium text-gray-700 whitespace-nowrap">Filter by tags:</span>
+                <div className="flex flex-wrap gap-2">
+                  {allTags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      onClick={() => {
+                        const newSelected = new Set(selectedTagIds)
+                        if (newSelected.has(tag.id)) {
+                          newSelected.delete(tag.id)
+                        } else {
+                          newSelected.add(tag.id)
+                        }
+                        setSelectedTagIds(newSelected)
+                      }}
+                      className={`transition-opacity ${
+                        selectedTagIds.has(tag.id) ? 'opacity-100 ring-2 ring-blue-500' : 'opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <TagBadge tag={tag} size="sm" />
+                    </button>
+                  ))}
+                  {selectedTagIds.size > 0 && (
+                    <button
+                      onClick={() => setSelectedTagIds(new Set())}
+                      className="text-sm text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Clear tag filters
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>

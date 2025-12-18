@@ -6,6 +6,7 @@ import { SessionType, UserWord } from '@/types/vocabulary'
 interface PracticeModeProps {
   sessionType: SessionType
   wordId?: string | null
+  wordIds?: string[] | null
   onComplete: (sessionId: string) => void
   onBack: () => void
 }
@@ -19,7 +20,7 @@ interface PracticeExercise {
   difficulty: string
 }
 
-export default function PracticeMode({ sessionType, wordId, onComplete, onBack }: PracticeModeProps) {
+export default function PracticeMode({ sessionType, wordId, wordIds, onComplete, onBack }: PracticeModeProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -61,6 +62,7 @@ export default function PracticeMode({ sessionType, wordId, onComplete, onBack }
           sessionType,
           mode: 'practice',
           wordId,
+          wordIds,
         }),
       })
 

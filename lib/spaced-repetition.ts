@@ -95,6 +95,7 @@ export function calculatePriorityScore(word: {
   correctCount: number
   lastPracticed?: string | null
   addedAt: string
+  difficulty?: string | null
 }): number {
   let score = 50 // Base score
 
@@ -152,6 +153,20 @@ export function calculatePriorityScore(word: {
     if (daysSincePractice > 14) {
       score += Math.min(30, (daysSincePractice - 14) * 2)
     }
+  }
+
+  // 7. Word level bonus (lower level = higher priority)
+  // +3 per level below C2: A1=+15, A2=+12, B1=+9, B2=+6, C1=+3, C2=+0
+  if (word.difficulty) {
+    const levelBonus = {
+      'A1': 15,
+      'A2': 12,
+      'B1': 9,
+      'B2': 6,
+      'C1': 3,
+      'C2': 0,
+    }
+    score += levelBonus[word.difficulty as keyof typeof levelBonus] || 0
   }
 
   // Clamp score between 0 and 100
@@ -234,6 +249,7 @@ export function selectWordsForSession<T extends {
   correctCount: number
   lastPracticed?: string | null
   addedAt: string
+  difficulty?: string | null
 }>(
   allWords: T[],
   mode: 'revise' | 'recall' | 'practice',

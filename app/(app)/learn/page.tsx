@@ -18,13 +18,23 @@ function LearnPageContent() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [showSummary, setShowSummary] = useState(false)
   const [wordId, setWordId] = useState<string | null>(null)
+  const [wordIds, setWordIds] = useState<string[] | null>(null)
+  const [isStudySelection, setIsStudySelection] = useState(false)
 
   // Check URL parameters on mount
   useEffect(() => {
-    const modeParam = searchParams.get('mode') as LearningMode
+    const modeParam = searchParams.get('mode') as LearningMode | 'study-selection'
     const wordIdParam = searchParams.get('wordId')
 
-    if (modeParam && ['revise', 'recall', 'practice'].includes(modeParam)) {
+    if (modeParam === 'study-selection') {
+      // Load word IDs from sessionStorage
+      const storedWordIds = sessionStorage.getItem('studyWordIds')
+      if (storedWordIds) {
+        const parsedIds = JSON.parse(storedWordIds)
+        setWordIds(parsedIds)
+        setIsStudySelection(true)
+      }
+    } else if (modeParam && ['revise', 'recall', 'practice'].includes(modeParam)) {
       setSelectedMode(modeParam)
       setSessionType('specific_word')
       setWordId(wordIdParam)
@@ -34,6 +44,7 @@ function LearnPageContent() {
   const handleModeSelect = (mode: LearningMode, type: SessionType) => {
     setSelectedMode(mode)
     setSessionType(type)
+    setIsStudySelection(false)
   }
 
   const handleSessionComplete = (id: string) => {
@@ -59,6 +70,7 @@ function LearnPageContent() {
           <ReviseMode
             sessionType={sessionType}
             wordId={wordId}
+            wordIds={wordIds}
             onComplete={handleSessionComplete}
             onBack={handleBackToModes}
           />
@@ -68,6 +80,7 @@ function LearnPageContent() {
           <RecallMode
             sessionType={sessionType}
             wordId={wordId}
+            wordIds={wordIds}
             onComplete={handleSessionComplete}
             onBack={handleBackToModes}
           />
@@ -77,6 +90,7 @@ function LearnPageContent() {
           <PracticeMode
             sessionType={sessionType}
             wordId={wordId}
+            wordIds={wordIds}
             onComplete={handleSessionComplete}
             onBack={handleBackToModes}
           />
@@ -84,7 +98,7 @@ function LearnPageContent() {
     }
   }
 
-  return <ModeSelection onModeSelect={handleModeSelect} />
+  return <ModeSelection onModeSelect={handleModeSelect} wordIds={wordIds} isStudySelection={isStudySelection} />
 }
 
 export default function LearnPage() {

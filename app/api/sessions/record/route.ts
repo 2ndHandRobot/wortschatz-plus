@@ -22,10 +22,10 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get current user word data
+    // Get current user word data with vocabulary
     const { data: userWord, error: fetchError } = await supabase
       .from('user_words')
-      .select('*')
+      .select('*, vocabulary:vocabulary(difficulty)')
       .eq('id', userWordId)
       .eq('user_id', user.id)
       .single()
@@ -105,6 +105,7 @@ export async function POST(request: Request) {
       correctCount: newCorrectCount,
       lastPracticed: new Date().toISOString(),
       addedAt: userWord.added_at,
+      difficulty: (userWord as any).vocabulary?.difficulty || null,
     })
 
     updatedWordData.priority_score = priorityScore

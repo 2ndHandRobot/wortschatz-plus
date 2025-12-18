@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { sessionType, mode, wordId } = await request.json()
+    const { sessionType, mode, wordId, wordIds } = await request.json()
 
     if (!sessionType || !mode) {
       return NextResponse.json(
@@ -35,8 +35,27 @@ export async function POST(request: Request) {
 
     let selectedWords: any[] = []
 
-    // If a specific word ID is provided, use only that word
-    if (wordId) {
+    // If multiple word IDs are provided, use those words
+    if (wordIds && Array.isArray(wordIds) && wordIds.length > 0) {
+      const { data: specificWords, error: wordError } = await supabase
+        .from('user_words')
+        .select(`
+          *,
+          vocabulary (*)
+        `)
+        .in('id', wordIds)
+        .eq('user_id', user.id)
+
+      if (wordError) throw wordError
+
+      if (specificWords) {
+        const mappedWords = specificWords.map(mapUserWordFromDb)
+        // Apply session type limits: complete = 20 words, quick = 5 words
+        const wordLimit = sessionType === 'quick' ? 5 : 20
+        selectedWords = mappedWords.slice(0, wordLimit)
+      }
+    } else if (wordId) {
+      // If a specific word ID is provided, use only that word
       const { data: specificWord, error: wordError } = await supabase
         .from('user_words')
         .select(`
@@ -202,7 +221,7 @@ async function generatePracticeExercises(words: any[], userId: string, supabase:
   // Capitalize the language name for prompts
   const languageCapitalized = targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1)
 
-  for (const userWord of words.slice(0, 5)) { // Limit to 5 for practice mode with AI
+  for (const userWord of words) { // Generate exercises for all selected words
     const word = userWord.vocabulary
 
     if (!word) continue

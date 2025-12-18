@@ -7,11 +7,12 @@ import WordCard from './WordCard'
 interface ReviseModeProps {
   sessionType: SessionType
   wordId?: string | null
+  wordIds?: string[] | null
   onComplete: (sessionId: string) => void
   onBack: () => void
 }
 
-export default function ReviseMode({ sessionType, wordId, onComplete, onBack }: ReviseModeProps) {
+export default function ReviseMode({ sessionType, wordId, wordIds, onComplete, onBack }: ReviseModeProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -42,6 +43,7 @@ export default function ReviseMode({ sessionType, wordId, onComplete, onBack }: 
           sessionType,
           mode: 'revise',
           wordId,
+          wordIds,
         }),
       })
 
