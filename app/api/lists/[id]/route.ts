@@ -73,7 +73,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
               correctCount: userWord.correct_count,
               lastPracticed: userWord.last_practiced,
               addedAt: userWord.added_at,
-              difficulty: item.vocabulary?.difficulty || null,
+              difficulty: (item.vocabulary as any)?.difficulty || null,
             })
 
             return {
@@ -91,7 +91,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         })
 
         // Sort by priority (highest first)
-        itemsWithPriority.sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0))
+        itemsWithPriority.sort((a, b) => ((b as any).priorityScore || 0) - ((a as any).priorityScore || 0))
       }
     }
 
